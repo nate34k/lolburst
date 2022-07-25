@@ -1,6 +1,8 @@
 use std::{vec, io};
 use serde_json::{Value};
 
+pub mod network;
+
 #[derive(Debug)]
 struct Orianna {
     name: String,
@@ -16,45 +18,39 @@ impl Orianna {
     }
 }
 
+#[derive(Debug)]
 struct AbilityRanks {
-    qrank: usize,
-    wrank: usize,
-    erank: usize,
-    rrank: usize,
+    q_rank: i64,
+    w_rank: i64,
+    e_rank: i64,
+    r_rank: i64,
 }
 
 impl AbilityRanks {
-    fn new(qrank: usize, wrank: usize, erank: usize, rrank: usize) -> Self {
-        AbilityRanks { qrank, wrank, erank, rrank }
+    fn new(q_rank: i64, w_rank: i64, e_rank: i64, r_rank: i64) -> Self {
+        AbilityRanks { q_rank, w_rank, e_rank, r_rank }
     }
 }
 
-fn abilityranks_builder() -> AbilityRanks {
-    AbilityRanks::new(get_input(String::from("Enter Q Rank")).parse::<usize>().unwrap(),
-                      get_input(String::from("Enter W Rank")).parse::<usize>().unwrap(),
-                      get_input(String::from("Enter E Rank")).parse::<usize>().unwrap(),
-                      get_input(String::from("Enter R Rank")).parse::<usize>().unwrap())
-}
-
-fn orianna_bulder() -> Orianna {
+fn orianna_builder() -> Orianna {
     Orianna::new(String::from("Orianna"),
-                 vec![60.0,90.0,120.0,150.0,180.0,0.5],
-                 vec![60.0,105.0,150.0,195.0,240.0,0.8],
-                 vec![60.0,90.0,120.0,150.0,180.0,0.3],
-                 vec![200.0,275.0,350.0,0.8],)
+                 vec![0.0,60.0,90.0,120.0,150.0,180.0,0.5],
+                 vec![0.0,60.0,105.0,150.0,195.0,240.0,0.7],
+                 vec![0.0,60.0,90.0,120.0,150.0,180.0,0.3],
+                 vec![0.0,200.0,275.0,350.0,0.8],)
 }
 
-fn calculate_rd(ap: f64, abilityranks: AbilityRanks) -> f64 {
-    let orianna = orianna_bulder();
-    let qrank = abilityranks.qrank;
-    let wrank = abilityranks.wrank;
-    let erank = abilityranks.erank;
-    let rrank = abilityranks.rrank;
-    let qrd = (orianna.qdmg[qrank-1]) + (orianna.qdmg[5] * ap);
-    let wrd = (orianna.wdmg[wrank-1]) + (orianna.wdmg[5] * ap);
-    let erd = (orianna.edmg[erank-1]) + (orianna.edmg[5] * ap);
-    let rrd = (orianna.rdmg[rrank-1]) + (orianna.rdmg[3] * ap);
-    qrd + wrd + erd + rrd
+fn calculate_rd(ap: f64, abilityranks: &AbilityRanks) -> f64 {
+    let orianna = orianna_builder();
+    let qrank = abilityranks.q_rank;
+    let wrank = abilityranks.w_rank;
+    let erank = abilityranks.e_rank;
+    let rrank = abilityranks.r_rank;
+    let qrd = (orianna.qdmg[qrank as usize]) + (orianna.qdmg[6] * ap);
+    let wrd = (orianna.wdmg[wrank as usize]) + (orianna.wdmg[6] * ap);
+    let erd = (orianna.edmg[erank as usize]) + (orianna.edmg[6] * ap);
+    let rrd = (orianna.rdmg[rrank as usize]) + (orianna.rdmg[4] * ap);
+    qrd + wrd
 }
 
 fn calculate_ignite(level: i32) -> f64 {
@@ -63,7 +59,7 @@ fn calculate_ignite(level: i32) -> f64 {
 
 fn calculate_pmd(rd: f64, mr: f64) -> f64 {
     let pmd = rd / (1.0 + (mr/100.0));
-    pmd.floor() + calculate_ignite(6)
+    pmd + calculate_ignite(18)
 }
 
 fn get_input(prompt: String) -> String {
@@ -77,21 +73,26 @@ fn get_input(prompt: String) -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let orianna = orianna_bulder();
+    let url = String::from("https://127.0.0.1:2999/liveclientdata/allgamedata");
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()?;
 
-    let ap = get_input(String::from("Enter AP")).parse::<f64>().unwrap();
-    let mr = get_input(String::from("Enter MR")).parse::<f64>().unwrap();
+    let orianna = orianna_builder();
 
-    println!("{}'s Burst is {:?} vs {:?} MR.", orianna.name, calculate_pmd(calculate_rd(ap, abilityranks_builder()), mr), mr);
 
-    let request = reqwest::get("https://static.developer.riotgames.com/docs/lol/liveclientdata_sample.json")
-        .await?
-        .text()
-        .await?;
-
-    let game_data: Value = serde_json::from_str(&request)?;
-
-    println!("{}", game_data["activePlayer"]["abilities"]["E"]["abilityLevel"]);
+    
+    loop {
+        let request = network::get_request(client, url).await;
+        let game_data: Value = serde_json::from_str(&request?.text().await?)?;
+        let ap = game_data["activePlayer"]["championStats"]["abilityPower"].as_f64().unwrap();
+        let mr = 50.0;
+        let ability_ranks = AbilityRanks::new(game_data["activePlayer"]["abilities"]["Q"]["abilityLevel"].as_i64().unwrap(),
+                                                            game_data["activePlayer"]["abilities"]["W"]["abilityLevel"].as_i64().unwrap(),
+                                                            game_data["activePlayer"]["abilities"]["E"]["abilityLevel"].as_i64().unwrap(),
+                                                            game_data["activePlayer"]["abilities"]["R"]["abilityLevel"].as_i64().unwrap());
+        println!("{}'s Burst is {:.1} vs {:.0} MR.", orianna.name, calculate_pmd(calculate_rd(ap, &ability_ranks), mr), mr);
+    }
 
     Ok(())
 }
