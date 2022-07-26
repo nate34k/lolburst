@@ -11,3 +11,4 @@ tokio = { version = "1", features = ["full"] }
 serde_json = "1.0.82"
 serde = { version = "1.0.140", features = ["derive"] }
 log = "0.4.17"
+device_query = "1.1.1"
