@@ -13,3 +13,4 @@ serde = { version = "1.0.140", features = ["derive"] }
 log = "0.4.17"
 device_query = "1.1.1"
 async-recursion = "1.0.0"
+dotenv = "0.15.0"

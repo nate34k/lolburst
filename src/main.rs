@@ -1,9 +1,10 @@
-use std::io;
+use std::{io};
 use serde_json::{Value};
 use tokio::time::{sleep, Duration};
 use log::{info, warn, error};
 use crate::champions::orianna;
 use reqwest::{Response, Client};
+use dotenv::dotenv;
 
 pub mod champions;
 pub mod dmg;
@@ -31,6 +32,10 @@ fn calculate_ignite(level: i32) -> f64 {
 fn calculate_pmd(rd: f64, mr: f64) -> f64 {
     let pmd = rd / (1.0 + (mr/100.0));
     pmd
+}
+
+fn calculate_mr(base_mr: f64, mr_per_level: f64, level: i64) -> f64 {
+    base_mr + ((level as f64 - 1.0) * mr_per_level)
 }
 
 fn get_input(prompt: String) -> String {
@@ -71,9 +76,13 @@ async fn request(client: &Client, url: &str) -> Result<Response, reqwest::Error>
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv().ok();
     let active_player_url = String::from("https://127.0.0.1:2999/liveclientdata/activeplayer");
-    let player_list_url = String::from("https://127.0.0.1:2999/liveclientdata/playerlist");
+    let active_player_json = String::from("C:/Users/odin/Development/lolburst/src/resources/active_player.json");
+    let player_list_url = String::from("​https://127.0.0.1:2999/liveclientdata/playerlist");
+    let player_list_json = String::from("C:/Users/odin/Development/lolburst/src/resources/all_players.json");
     let ddragon_url = String::from("http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json");
+    let use_sample_json = true;
 
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true).build()?;
@@ -83,11 +92,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let champion = champions::match_champion("Orianna");
     
     loop {
-
+        let active_player_data: active_player::Root;
+        let player_data: all_players::Root;
         // Deserialize the JSON data from request
-        let active_player_data: active_player::Root = serde_json::from_str(&request(&client, &active_player_url).await?.text().await?)?;
-        let player_url_json = String::from("{ \"allPlayers\": ") + &request(&client, &player_list_url).await?.text().await?.to_owned() + "}";
-        let player_data: all_players::Root = serde_json::from_str(&player_url_json)?;
+        if use_sample_json {
+            active_player_data = serde_json::from_str(&std::fs::read_to_string(&active_player_json)?)?;
+            player_data = serde_json::from_str(&std::fs::read_to_string(&player_list_json)?)?;
+        }
+        else {
+            active_player_data = serde_json::from_str(&request(&client, &active_player_url).await?.text().await?)?;
+            let player_url_jsonified = String::from("{ \"allPlayers\": ") + &request(&client, &player_list_url).await?.text().await?.to_owned() + "}";
+            player_data = serde_json::from_str(&player_url_jsonified)?;
+        }
 
         let opponant_team = get_opponant_team(&active_player_data, &player_data);
 
@@ -108,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                             active_player_data.abilities.r.ability_level);
 
         // Loop to print burst dmg against each enemy champion
-        for i in 0..get_opponant_team(&active_player_data, &player_data).len() {
+        for i in 0..opponant_team.len() {
             println!("Burst is {:.1} vs {}'s {:.0} MR.", calculate_pmd(dmg::calculate_rd(&champion, &ap, &ability_ranks), mr[i]),
                                                          opponant_team[i],
                                                          mr[i]);
