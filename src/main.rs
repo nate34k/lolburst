@@ -7,6 +7,8 @@ use reqwest::{Response, Client};
 
 pub mod champions;
 pub mod dmg;
+pub mod active_player;
+pub mod all_players;
 
 #[derive(Debug)]
 pub struct AbilityRanks {
@@ -40,24 +42,27 @@ fn get_input(prompt: String) -> String {
     input.trim().to_string()
 }
 
-fn get_team(game_data: &Value, i: usize) -> String {
-    String::from(game_data["allPlayers"][i]["team"].as_str().unwrap())
+fn get_team(active_player: &active_player::Root, players: &all_players::Root) -> String {
+    let mut res = String::new();
+    for i in 0..players.all_players.len() {
+        let n = players.all_players[i].summoner_name.clone();
+        if n == active_player.summoner_name {
+            res = players.all_players[i].team.clone();
+            break;
+        }
+    }
+    res
 }
 
-fn get_opponant_team(game_data: &Value) -> Vec<String> {
+fn get_opponant_team(active_player: &active_player::Root, players: &all_players::Root) -> Vec<String> {
     let mut opponant_list = Vec::new();
-    for i in 0..game_data["allPlayers"].as_array().unwrap().len() {
-        if get_team(game_data, 0) == get_team(game_data, i) {
-            opponant_list.push(String::from(game_data["allPlayers"][i]["championName"].as_str().unwrap()));
+    for i in 0..players.all_players.len() {
+        let team = players.all_players[i].team.clone();
+        if get_team(active_player, players) != team {
+            opponant_list.push(players.all_players[i].champion_name.clone());
         }
     }
     opponant_list
-}
-
-async fn network() -> Result<Client, reqwest::Error> {
-    reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
 }
 
 async fn request(client: &Client, url: &str) -> Result<Response, reqwest::Error> {
@@ -66,46 +71,52 @@ async fn request(client: &Client, url: &str) -> Result<Response, reqwest::Error>
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let url = String::from("https://static.developer.riotgames.com/docs/lol/liveclientdata_sample.json");
+    let active_player_url = String::from("https://127.0.0.1:2999/liveclientdata/activeplayer");
+    let player_list_url = String::from("https://127.0.0.1:2999/liveclientdata/playerlist");
     let ddragon_url = String::from("http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json");
 
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true).build()?;
 
-    let data: Value = serde_json::from_str(&request(&client, &ddragon_url).await?.text().await?)?;
+    let ddragon_data: Value = serde_json::from_str(&request(&client, &ddragon_url).await?.text().await?)?;
     
     let champion = champions::match_champion("Orianna");
     
     loop {
-        let mr = 50.0;
-        let request = match client.get(&url).send().await {
-            Ok(request) => request,
-            Err(err) => {
-                error!("Error sending get request: {}", err);
-                return Err(err.into());
-            }
-        };
-        let game_data: Value = match serde_json::from_str(&request.text().await?) {
-            Ok(game_data) => game_data,
-            Err(err) => {
-                error!("Error parsing game data: {}", err);
-                break;
-            }
-        };
-        println!("{:?}", get_team(&game_data, 0));
-        println!("{:?}", get_opponant_team(&game_data));
-        println!("{:#?}", data["data"][get_opponant_team(&game_data)[0].clone()]["stats"]);
-        let ap = game_data["activePlayer"]["championStats"]["abilityPower"].as_f64().unwrap();
-        let ability_ranks = AbilityRanks::new(game_data["activePlayer"]["abilities"]["Q"]["abilityLevel"].as_i64().unwrap(),
-        game_data["activePlayer"]["abilities"]["W"]["abilityLevel"].as_i64().unwrap(),
-        game_data["activePlayer"]["abilities"]["E"]["abilityLevel"].as_i64().unwrap(),
-                                                            game_data["activePlayer"]["abilities"]["R"]["abilityLevel"].as_i64().unwrap());
 
-        println!("{}'s Burst is {:.1} vs {:.0} MR.", game_data["activePlayer"]["summonerName"].as_str().unwrap().replace('"', ""),
-                                                     calculate_pmd(dmg::calculate_rd(&champion, &ap, &ability_ranks), mr),
-                                                     mr);
+        // Deserialize the JSON data from request
+        let active_player_data: active_player::Root = serde_json::from_str(&request(&client, &active_player_url).await?.text().await?)?;
+        let player_url_json = String::from("{ \"allPlayers\": ") + &request(&client, &player_list_url).await?.text().await?.to_owned() + "}";
+        let player_data: all_players::Root = serde_json::from_str(&player_url_json)?;
 
-        sleep(Duration::from_secs(5)).await;
+        let opponant_team = get_opponant_team(&active_player_data, &player_data);
+
+        // Set a Vec<f64> for opponant MR values
+        let mut mr = Vec::new();
+        for i in 0..get_opponant_team(&active_player_data, &player_data).len() {
+            mr.push(ddragon_data["data"][opponant_team[i]
+                                        .clone()
+                                        .replace('\'', "")
+                                        .replace(" ", "")]["stats"]["spellblock"].as_f64().unwrap())
+        }
+
+        // Other data we need to print
+        let ap = active_player_data.champion_stats.ability_power;
+        let ability_ranks = AbilityRanks::new(active_player_data.abilities.q.ability_level,
+                                                            active_player_data.abilities.w.ability_level,
+                                                            active_player_data.abilities.e.ability_level,
+                                                            active_player_data.abilities.r.ability_level);
+
+        // Loop to print burst dmg against each enemy champion
+        for i in 0..get_opponant_team(&active_player_data, &player_data).len() {
+            println!("Burst is {:.1} vs {}'s {:.0} MR.", calculate_pmd(dmg::calculate_rd(&champion, &ap, &ability_ranks), mr[i]),
+                                                         opponant_team[i],
+                                                         mr[i]);
+        }
+                                                        
+        println!("================================");
+        // Sleep for 5 seconds between running the loop again to save resources
+        sleep(Duration::from_secs(15)).await;
     }
 
     Ok(())
