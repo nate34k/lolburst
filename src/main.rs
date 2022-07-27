@@ -1,4 +1,8 @@
-use std::{io};
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
+
+use std::{io, env, fs};
+use serde::__private::de;
 use serde_json::{Value};
 use tokio::time::{sleep, Duration};
 use log::{info, warn, error};
@@ -70,64 +74,156 @@ fn get_opponant_team(active_player: &active_player::Root, players: &all_players:
     opponant_list
 }
 
-async fn request(client: &Client, url: &str) -> Result<Response, reqwest::Error> {
-    client.get(url).send().await
+async fn request(client: &Client, url: &str) -> Response {
+    info!("Sending Get request to {}", url);
+    client
+        .get(url)
+        .send()
+        .await
+        .expect("Get request failed")
+}
+
+struct JSONDataLocations {
+    url: String,
+    json: String,
+}
+
+struct DeserializerParams<'a> {
+    use_sample_json: bool,
+    active_player_json_locations: JSONDataLocations,
+    all_player_json_locations: JSONDataLocations,
+    client: &'a Client
+}
+
+async fn deserializer(derserializer_params: &DeserializerParams<'_>) -> (active_player::Root, all_players::Root) {
+    let active_player_data: active_player::Root;
+    let all_player_data: all_players::Root;
+    let use_sample_json = derserializer_params.use_sample_json;
+    let active_player_json_locations = &derserializer_params.active_player_json_locations;
+    let all_player_json_locations = &derserializer_params.all_player_json_locations;
+    let client = derserializer_params.client;
+
+    if use_sample_json {
+        info!("use_sample_json is true. Using JSON files in resources dir.");
+
+        active_player_data = serde_json::from_str(&fs::read_to_string(&active_player_json_locations.json)
+            .expect("Failed to read string from file"))
+            .expect("Failed to deserialize string to active_player::Root");
+        all_player_data = serde_json::from_str(&fs::read_to_string(&all_player_json_locations.json)
+            .expect("Failed to read string from file"))
+            .expect("Failed to deserialize string into all_players::Root");
+    } else {
+        active_player_data = serde_json::from_str(&request(&client, &active_player_json_locations.url)
+            .await
+            .text()
+            .await
+            .expect("Failed to parse data for String"))
+            .expect("Failed to deserialize String into active_player::Root");
+        let player_url_jsonified = String::from("{ \"allPlayers\": ") + &request(&client, &all_player_json_locations.url).await.text().await.expect("msg").to_owned() + "}";
+        all_player_data = serde_json::from_str(&player_url_jsonified).expect("msg");
+    }
+
+    (active_player_data, all_player_data)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env::set_var("RUST_LOG", "trace");
     dotenv().ok();
-    let active_player_url = String::from("https://127.0.0.1:2999/liveclientdata/activeplayer");
-    let active_player_json = String::from("C:/Users/odin/Development/lolburst/src/resources/active_player.json");
-    let player_list_url = String::from("​https://127.0.0.1:2999/liveclientdata/playerlist");
-    let player_list_json = String::from("C:/Users/odin/Development/lolburst/src/resources/all_players.json");
-    let ddragon_url = String::from("http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json");
-    let use_sample_json = true;
+    pretty_env_logger::init();
+    let active_player_json_locations = JSONDataLocations {
+        url: String::from("https://127.0.0.1:2999/liveclientdata/activeplayer"),
+        json: String::from("C:/Users/odin/Development/lolburst/src/resources/active_player.json"),
+    };
 
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true).build()?;
+    let all_player_json_locations = JSONDataLocations {
+        url: String::from("​https://127.0.0.1:2999/liveclientdata/playerlist"),
+        json: String::from("C:/Users/odin/Development/lolburst/src/resources/all_players.json")
+    };
 
-    let ddragon_data: Value = serde_json::from_str(&request(&client, &ddragon_url).await?.text().await?)?;
+    let client: Client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .expect("Failed to build client");
+        info!("Client built!");
+
+    let deserializer_params = DeserializerParams {
+        use_sample_json: true,
+        active_player_json_locations: active_player_json_locations,
+        all_player_json_locations: all_player_json_locations,
+        client: &client,
+    };
+
+    //let active_player_url = "https://127.0.0.1:2999/liveclientdata/activeplayer";
+    //let active_player_json = "C:/Users/odin/Development/lolburst/src/resources/active_player.json";
+    //let player_list_url = "​https://127.0.0.1:2999/liveclientdata/playerlist";
+    //let player_list_json = "C:/Users/odin/Development/lolburst/src/resources/all_players.json";
+    //let use_sample_json = true;
+    let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
+
+    let ddragon_data: Value = serde_json::from_str(&request(&client, &ddragon_url)
+        .await
+        .text()
+        .await
+        .expect("Failed to parse data for String"))
+        .expect("Failed to deserialize String into JSON Value");
     
     let champion = champions::match_champion("Orianna");
     
     loop {
-        let active_player_data: active_player::Root;
-        let player_data: all_players::Root;
-        // Deserialize the JSON data from request
-        if use_sample_json {
-            active_player_data = serde_json::from_str(&std::fs::read_to_string(&active_player_json)?)?;
-            player_data = serde_json::from_str(&std::fs::read_to_string(&player_list_json)?)?;
-        }
-        else {
-            active_player_data = serde_json::from_str(&request(&client, &active_player_url).await?.text().await?)?;
-            let player_url_jsonified = String::from("{ \"allPlayers\": ") + &request(&client, &player_list_url).await?.text().await?.to_owned() + "}";
-            player_data = serde_json::from_str(&player_url_jsonified)?;
-        }
+        let all_data = deserializer(&deserializer_params).await;
+        let active_player_data: active_player::Root = all_data.0;
+        let player_data: all_players::Root = all_data.1;
+
+        // Deserialize the JSON data
+        //if use_sample_json {
+        //    info!("use_sample_json is true. Using JSON files in resources dir.");
+        //    active_player_data = serde_json::from_str(&fs::read_to_string(&active_player_json)
+        //        .expect("Failed to read string from file"))?;
+        //    player_data = serde_json::from_str(&fs::read_to_string(&player_list_json)?)?;
+        //} else {
+        //    active_player_data = serde_json::from_str(&request(&client, &active_player_url)
+        //        .await
+        //        .text()
+        //        .await
+        //        .expect("Failed to parse data for String"))
+        //        .expect("Failed to deserialize String into active_player::Root");
+        //    let player_url_jsonified = String::from("{ \"allPlayers\": ") + &request(&client, &player_list_url).await.text().await?.to_owned() + "}";
+        //    player_data = serde_json::from_str(&player_url_jsonified)?;
+        //}
+
 
         let opponant_team = get_opponant_team(&active_player_data, &player_data);
 
         // Set a Vec<f64> for opponant MR values
         let mut mr = Vec::new();
         for i in 0..get_opponant_team(&active_player_data, &player_data).len() {
-            mr.push(ddragon_data["data"][opponant_team[i]
-                                        .clone()
-                                        .replace('\'', "")
-                                        .replace(" ", "")]["stats"]["spellblock"].as_f64().unwrap())
+            mr.push(ddragon_data
+                ["data"]
+                [opponant_team[i]
+                    .clone()
+                    .replace('\'', "")
+                    .replace(" ", "")]
+                ["stats"]
+                ["spellblock"]
+                    .as_f64()
+                    .unwrap())
         }
 
         // Other data we need to print
         let ap = active_player_data.champion_stats.ability_power;
-        let ability_ranks = AbilityRanks::new(active_player_data.abilities.q.ability_level,
-                                                            active_player_data.abilities.w.ability_level,
-                                                            active_player_data.abilities.e.ability_level,
-                                                            active_player_data.abilities.r.ability_level);
+        let ability_ranks = AbilityRanks::new(
+            active_player_data.abilities.q.ability_level,
+            active_player_data.abilities.w.ability_level,
+            active_player_data.abilities.e.ability_level,
+            active_player_data.abilities.r.ability_level);
 
         // Loop to print burst dmg against each enemy champion
         for i in 0..opponant_team.len() {
-            println!("Burst is {:.1} vs {}'s {:.0} MR.", calculate_pmd(dmg::calculate_rd(&champion, &ap, &ability_ranks), mr[i]),
-                                                         opponant_team[i],
-                                                         mr[i]);
+            println!("Burst is {:.1} vs {}'s {:.0} MR.", 
+                calculate_pmd(dmg::calculate_rd(&champion, &ap, &ability_ranks), mr[i]),
+                opponant_team[i],
+                mr[i]);
         }
                                                         
         println!("================================");
