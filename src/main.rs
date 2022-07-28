@@ -14,6 +14,7 @@ pub mod champions;
 pub mod dmg;
 pub mod active_player;
 pub mod all_players;
+pub mod network;
 
 #[derive(Debug)]
 pub struct AbilityRanks {
@@ -79,15 +80,6 @@ fn get_opponant_team(active_player: &active_player::Root, players: &all_players:
     opponant_list
 }
 
-async fn request(client: &Client, url: &str) -> Response {
-    info!("Sending Get request to {}", url);
-    client
-        .get(url)
-        .send()
-        .await
-        .expect("Get request failed")
-}
-
 struct JSONDataLocations {
     url: String,
     json: String,
@@ -118,13 +110,13 @@ async fn deserializer(derserializer_params: &DeserializerParams<'_>) -> (active_
             .expect("Failed to read string from file"))
             .expect("Failed to deserialize string into all_players::Root");
     } else {
-        active_player_data = serde_json::from_str(&request(&client, &active_player_json_locations.url)
+        active_player_data = serde_json::from_str(&network::request(&client, &active_player_json_locations.url)
             .await
             .text()
             .await
             .expect("Failed to parse data for String"))
             .expect("Failed to deserialize String into active_player::Root");
-        let player_url_jsonified = String::from("{ \"allPlayers\": ") + &request(&client, &all_player_json_locations.url).await.text().await.expect("msg").to_owned() + "}";
+        let player_url_jsonified = String::from("{ \"allPlayers\": ") + &network::request(&client, &all_player_json_locations.url).await.text().await.expect("msg").to_owned() + "}";
         all_player_data = serde_json::from_str(&player_url_jsonified).expect("msg");
     }
 
@@ -139,7 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let active_player_json_locations = JSONDataLocations {
         url:  String::from(env::var("ACTIVE_PLAYER_URL")?),
-        json: String::from(env::var("ACTIVE_PLAYER_JSON")?),
+        json: env::var("ACTIVE_PLAYER_JSON")?,
     };
 
     let all_player_json_locations = JSONDataLocations {
@@ -147,12 +139,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         json: String::from(env::var("ALL_PLAYERS_JSON")?),
     };
 
-    let client: Client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .expect("Failed to build client");
-        info!("Client built!");
-
+    let client: Client = network::build_client().await;
+    
     let deserializer_params = DeserializerParams {
         use_sample_json: true,
         active_player_json_locations: active_player_json_locations,
@@ -160,14 +148,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client: &client,
     };
 
-    //let active_player_url = "https://127.0.0.1:2999/liveclientdata/activeplayer";
-    //let active_player_json = "C:/Users/odin/Development/lolburst/src/resources/active_player.json";
-    //let player_list_url = "​https://127.0.0.1:2999/liveclientdata/playerlist";
-    //let player_list_json = "C:/Users/odin/Development/lolburst/src/resources/all_players.json";
-    //let use_sample_json = true;
     let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
 
-    let ddragon_data: Value = serde_json::from_str(&request(&client, &ddragon_url)
+    let ddragon_data: Value = serde_json::from_str(&network::request(&client, &ddragon_url)
         .await
         .text()
         .await
@@ -177,26 +160,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let champion = champions::match_champion("Orianna");
     
     loop {
-        let all_data = deserializer(&deserializer_params).await;
-        let active_player_data: active_player::Root = all_data.0;
-        let all_player_data: all_players::Root = all_data.1;
-
-        // Deserialize the JSON data
-        //if use_sample_json {
-        //    info!("use_sample_json is true. Using JSON files in resources dir.");
-        //    active_player_data = serde_json::from_str(&fs::read_to_string(&active_player_json)
-        //        .expect("Failed to read string from file"))?;
-        //    player_data = serde_json::from_str(&fs::read_to_string(&player_list_json)?)?;
-        //} else {
-        //    active_player_data = serde_json::from_str(&request(&client, &active_player_url)
-        //        .await
-        //        .text()
-        //        .await
-        //        .expect("Failed to parse data for String"))
-        //        .expect("Failed to deserialize String into active_player::Root");
-        //    let player_url_jsonified = String::from("{ \"allPlayers\": ") + &request(&client, &player_list_url).await.text().await?.to_owned() + "}";
-        //    player_data = serde_json::from_str(&player_url_jsonified)?;
-        //}
+        
+        let (active_player_data, all_player_data) = deserializer(&deserializer_params).await;
 
 
         let opponant_team = get_opponant_team(&active_player_data, &all_player_data);
@@ -229,8 +194,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
                                                         
         println!("================================");
+
         // Sleep for 5 seconds between running the loop again to save resources
-        sleep(Duration::from_secs(15)).await;
+        sleep(Duration::from_secs(env::var("SAMPLE_RATE")
+            .unwrap_or(String::from("15"))
+            .parse::<u64>()
+            .unwrap_or(15)))
+            .await;
     }
 
     Ok(())
