@@ -8,7 +8,7 @@ use tokio::time::{sleep, Duration};
 use log::{info, warn, error};
 use crate::champions::orianna;
 use reqwest::{Response, Client};
-use dotenv::dotenv;
+use dotenv;
 
 pub mod champions;
 pub mod dmg;
@@ -63,12 +63,17 @@ fn get_team(active_player: &active_player::Root, players: &all_players::Root) ->
     res
 }
 
-fn get_opponant_team(active_player: &active_player::Root, players: &all_players::Root) -> Vec<String> {
+fn get_opponant_team(active_player: &active_player::Root, players: &all_players::Root) -> Vec<(String, i64)> {
     let mut opponant_list = Vec::new();
     for i in 0..players.all_players.len() {
         let team = players.all_players[i].team.clone();
         if get_team(active_player, players) != team {
-            opponant_list.push(players.all_players[i].champion_name.clone());
+            opponant_list.push((
+                players.all_players[i].champion_name
+                    .clone()
+                    .replace('\'', "")
+                    .replace(" ", ""),
+                players.all_players[i].level));
         }
     }
     opponant_list
@@ -129,16 +134,17 @@ async fn deserializer(derserializer_params: &DeserializerParams<'_>) -> (active_
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env::set_var("RUST_LOG", "trace");
-    dotenv().ok();
+    dotenv::dotenv().expect("Failed to load env from .env");
     pretty_env_logger::init();
+
     let active_player_json_locations = JSONDataLocations {
-        url: String::from("https://127.0.0.1:2999/liveclientdata/activeplayer"),
-        json: String::from("C:/Users/odin/Development/lolburst/src/resources/active_player.json"),
+        url:  String::from(env::var("ACTIVE_PLAYER_URL")?),
+        json: String::from(env::var("ACTIVE_PLAYER_JSON")?),
     };
 
     let all_player_json_locations = JSONDataLocations {
-        url: String::from("​https://127.0.0.1:2999/liveclientdata/playerlist"),
-        json: String::from("C:/Users/odin/Development/lolburst/src/resources/all_players.json")
+        url:  String::from(env::var("ALL_PLAYERS_URL")?),
+        json: String::from(env::var("ALL_PLAYERS_JSON")?),
     };
 
     let client: Client = reqwest::Client::builder()
@@ -173,7 +179,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let all_data = deserializer(&deserializer_params).await;
         let active_player_data: active_player::Root = all_data.0;
-        let player_data: all_players::Root = all_data.1;
+        let all_player_data: all_players::Root = all_data.1;
 
         // Deserialize the JSON data
         //if use_sample_json {
@@ -193,21 +199,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         //}
 
 
-        let opponant_team = get_opponant_team(&active_player_data, &player_data);
+        let opponant_team = get_opponant_team(&active_player_data, &all_player_data);
 
         // Set a Vec<f64> for opponant MR values
         let mut mr = Vec::new();
-        for i in 0..get_opponant_team(&active_player_data, &player_data).len() {
-            mr.push(ddragon_data
-                ["data"]
-                [opponant_team[i]
-                    .clone()
-                    .replace('\'', "")
-                    .replace(" ", "")]
-                ["stats"]
-                ["spellblock"]
-                    .as_f64()
-                    .unwrap())
+        for i in 0..get_opponant_team(&active_player_data, &all_player_data).len() {
+            let champion_name = &opponant_team[i].0;
+            let base_mr = ddragon_data["data"][champion_name]["stats"]["spellblock"].as_f64().unwrap();
+            let mr_per_level = ddragon_data["data"][champion_name]["stats"]["spellblockperlevel"].as_f64().unwrap();
+            let level = opponant_team[i].1 as f64;
+            let scaled_mr = base_mr + (mr_per_level * (level - 1.0));
+            mr.push(scaled_mr)
         }
 
         // Other data we need to print
@@ -222,7 +224,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for i in 0..opponant_team.len() {
             println!("Burst is {:.1} vs {}'s {:.0} MR.", 
                 calculate_pmd(dmg::calculate_rd(&champion, &ap, &ability_ranks), mr[i]),
-                opponant_team[i],
+                opponant_team[i].0,
                 mr[i]);
         }
                                                         
