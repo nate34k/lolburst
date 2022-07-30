@@ -9,7 +9,7 @@ use crate::champions::orianna;
 use reqwest::{Client,};
 use dotenv;
 use crate::dmg::Resistance;
-use crate::utils::deserializer;
+use crate::utils::{deserializer, teams};
 
 mod champions;
 mod dmg;
@@ -118,26 +118,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         
         let (active_player_data, all_player_data) = deserializer::deserializer(&deserializer_params).await;
 
-        let opponant_team = teams::get_opponant_team(&active_player_data, &all_player_data);
+        let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
         // Set a Vec<f64> for opponant MR values
         let mut mr = Vec::new();
-        for i in 0..get_opponant_team(&active_player_data, &all_player_data).len() {
-            let champion_name = &opponant_team[i].0;
+        for i in 0..opponant_team.opponants.len() {
+            let champion_name = &opponant_team.opponants[i].0;
             let base_mr = ddragon_data["data"][champion_name]["stats"]["spellblock"].as_f64().unwrap();
             let mr_per_level = ddragon_data["data"][champion_name]["stats"]["spellblockperlevel"].as_f64().unwrap();
-            let level = opponant_team[i].1 as f64;
+            let level = opponant_team.opponants[i].1 as f64;
             let scaled_mr = base_mr + (mr_per_level * (level - 1.0));
             mr.push(scaled_mr)
         }
 
         // Set a Vec<f64> for opponant AR values
         let mut ar = Vec::new();
-        for i in 0..get_opponant_team(&active_player_data, &all_player_data).len() {
-            let champion_name = &opponant_team[i].0;
+        for i in 0..opponant_team.opponants.len() {
+            let champion_name = &opponant_team.opponants[i].0;
             let base_mr = ddragon_data["data"][champion_name]["stats"]["armor"].as_f64().unwrap();
             let mr_per_level = ddragon_data["data"][champion_name]["stats"]["armorperlevel"].as_f64().unwrap();
-            let level = opponant_team[i].1 as f64;
+            let level = opponant_team.opponants[i].1 as f64;
             let scaled_mr = base_mr + (mr_per_level * (level - 1.0));
             ar.push(scaled_mr)
         }
@@ -150,11 +150,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             active_player_data.abilities.r.ability_level);
 
         // Loop to print burst dmg against each enemy champion
-        for i in 0..opponant_team.len() {
+        for i in 0..opponant_team.opponants.len() {
             let resistance = Resistance::new(ar[i], ar[i]);
             println!("Burst is {:.1} vs {}", 
                 dmg::burst_dmg(&champion, &active_player_data, &ability_ranks, resistance),
-                opponant_team[i].0);
+                opponant_team.opponants[i].0);
         }
                                                         
         println!("================================");

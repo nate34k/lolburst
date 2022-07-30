@@ -16,16 +16,16 @@ fn get_team(active_player: &active_player::Root, players: &all_players::Root) ->
     res
 }
 
-struct OpponantTeam {
-    opponant_team: Vec<(String, i64)>,
+pub struct OpponantTeam {
+    pub opponants: Vec<(String, i64)>,
 }
 
 impl OpponantTeam {
-    fn new(opponant_team: Vec<(String, i64)>) -> Self {
-        OpponantTeam { opponant_team }
+    pub fn new(active_player: &active_player::Root, players: &all_players::Root) -> Self {
+        OpponantTeam { opponants: OpponantTeam::build_opponant_team(active_player, players) }
     }
-    
-    fn get_opponant_team(active_player: &active_player::Root, players: &all_players::Root) -> Vec<(String, i64)> {
+
+    pub fn build_opponant_team(active_player: &active_player::Root, players: &all_players::Root) -> Vec<(String, i64)> {
         let mut opponant_list = Vec::new();
         for i in 0..players.all_players.len() {
             let team = players.all_players[i].team.clone();
