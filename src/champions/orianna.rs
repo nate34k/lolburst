@@ -1,41 +1,94 @@
-use crate::AbilityRanks;
+use crate::{active_player, dmg, AbilityRanks};
 
 #[derive(Debug)]
 pub struct Orianna {
     pub name: String,
-    stats: OriannaStats,
+    stats: Stats,
 }
 
 impl Orianna {
-    fn new(name: String, stats: OriannaStats) -> Self {
+    fn new(name: String, stats: Stats) -> Self {
         Orianna { name, stats }
     }
 
     pub fn build() -> Orianna {
-        Orianna::new(String::from("Orianna"),
-                     OriannaStats::new(
-                         vec![0.0,60.0,90.0,120.0,150.0,180.0,0.5], 
-                         vec![0.0,60.0,105.0,150.0,195.0,240.0,0.7],
-                         vec![0.0,60.0,90.0,120.0,150.0,180.0,0.3],
-                         vec![0.0,200.0,275.0,350.0,0.8],
-                         vec![10.0,18.0,26.0,34.0,42.0,50.0,0.15,1.2]),)
+        Orianna::new(
+            String::from("Orianna"),
+            Stats::new(
+                vec![0.0, 60.0, 90.0, 120.0, 150.0, 180.0, 0.5],
+                vec![0.0, 60.0, 105.0, 150.0, 195.0, 240.0, 0.7],
+                vec![0.0, 60.0, 90.0, 120.0, 150.0, 180.0, 0.3],
+                vec![0.0, 200.0, 275.0, 350.0, 0.8],
+                vec![10.0, 18.0, 26.0, 34.0, 42.0, 50.0, 0.15, 1.2],
+            ),
+        )
     }
 
-    pub fn calculate_rd(orianna: &Orianna, ap: &f64, abilityranks: &AbilityRanks) -> f64 {
-        let qrank = abilityranks.q_rank;
-        let wrank = abilityranks.w_rank;
-        let erank = abilityranks.e_rank;
-        let rrank = abilityranks.r_rank;
-        let qrd = (orianna.stats.q_dmg[qrank as usize]) + (orianna.stats.q_dmg[6] * ap);
-        let wrd = (orianna.stats.w_dmg[wrank as usize]) + (orianna.stats.w_dmg[6] * ap);
-        let erd = (orianna.stats.e_dmg[erank as usize]) + (orianna.stats.e_dmg[6] * ap);
-        let rrd = (orianna.stats.r_dmg[rrank as usize]) + (orianna.stats.r_dmg[4] * ap);
-        qrd + wrd
+    pub fn calculate_rd(
+        &self,
+        active_player: &active_player::Root,
+        abilityranks: &AbilityRanks,
+    ) -> RawDamage {
+        let q_rank = abilityranks.q_rank;
+        let w_rank = abilityranks.w_rank;
+        let e_rank = abilityranks.e_rank;
+        let r_rank = abilityranks.r_rank;
+        let ap = active_player.champion_stats.ability_power;
+        let ad = active_player.champion_stats.attack_damage;
+        let level = active_player.level;
+        RawDamage {
+            q: (self.stats.q_dmg[q_rank as usize]) + (self.stats.q_dmg[6] * ap),
+            w: (self.stats.w_dmg[w_rank as usize]) + (self.stats.w_dmg[6] * ap),
+            e: (self.stats.e_dmg[e_rank as usize]) + (self.stats.e_dmg[6] * ap),
+            r: (self.stats.r_dmg[r_rank as usize]) + (self.stats.r_dmg[4] * ap),
+            p: self.stats.p_dmg[(((level - 1) / 3) as f64).floor() as usize],
+            aa: ad,
+        }
+    }
+
+    pub fn calculate_damage(
+        &self,
+        active_player: &active_player::Root,
+        ability: &str,
+        abilityranks: &AbilityRanks,
+        resistance: dmg::Resistance,
+    ) -> f64 {
+        let mut dmg = Vec::new();
+        let raw_damage = self.calculate_rd(active_player, abilityranks);
+
+        for i in ability.chars() {
+            match i {
+                'Q' => dmg.push(dmg::calculate_mitigation(
+                    raw_damage.q,
+                    resistance.magic_resist,
+                )),
+                'W' => dmg.push(dmg::calculate_mitigation(
+                    raw_damage.w,
+                    resistance.magic_resist,
+                )),
+                'E' => dmg.push(dmg::calculate_mitigation(
+                    raw_damage.e,
+                    resistance.magic_resist,
+                )),
+                'R' => dmg.push(dmg::calculate_mitigation(
+                    raw_damage.r,
+                    resistance.magic_resist,
+                )),
+                'P' => dmg.push(dmg::calculate_mitigation(
+                    raw_damage.p,
+                    resistance.magic_resist,
+                )),
+                'A' => dmg.push(dmg::calculate_mitigation(raw_damage.aa, resistance.armor)),
+                _ => println!("Invalid ability"),
+            }
+        }
+
+        dmg.iter().sum()
     }
 }
 
 #[derive(Debug)]
-struct OriannaStats {
+struct Stats {
     q_dmg: Vec<f64>,
     w_dmg: Vec<f64>,
     e_dmg: Vec<f64>,
@@ -43,8 +96,29 @@ struct OriannaStats {
     p_dmg: Vec<f64>,
 }
 
-impl OriannaStats {
-    fn new(q_dmg: Vec<f64>, w_dmg: Vec<f64>, e_dmg: Vec<f64>, r_dmg: Vec<f64>, p_dmg: Vec<f64>) -> Self {
-        OriannaStats { q_dmg, w_dmg, e_dmg, r_dmg, p_dmg }
+impl Stats {
+    fn new(
+        q_dmg: Vec<f64>,
+        w_dmg: Vec<f64>,
+        e_dmg: Vec<f64>,
+        r_dmg: Vec<f64>,
+        p_dmg: Vec<f64>,
+    ) -> Self {
+        Stats {
+            q_dmg,
+            w_dmg,
+            e_dmg,
+            r_dmg,
+            p_dmg,
+        }
     }
+}
+
+pub struct RawDamage {
+    q: f64,
+    w: f64,
+    e: f64,
+    r: f64,
+    p: f64,
+    aa: f64,
 }
