@@ -8,9 +8,9 @@ pub enum ActiveChampion {
 
 pub fn match_champion(name: &str) -> ActiveChampion {
     match name {
-        "Orianna" => return ActiveChampion::Orianna(orianna::Orianna::build()),
-        _ => return ActiveChampion::None,
-    };
+        "Orianna" => ActiveChampion::Orianna(orianna::Orianna::build()),
+        _ => ActiveChampion::None,
+    }
 }
 
 // #[derive(Debug, Deserialize)]
