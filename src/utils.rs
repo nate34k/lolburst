@@ -1,3 +1,3 @@
 pub mod deserializer;
-pub mod magic_resist;
+pub mod resistance;
 pub mod teams;

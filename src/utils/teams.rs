@@ -22,20 +22,27 @@ pub struct OpponantTeam {
 
 impl OpponantTeam {
     pub fn new(active_player: &active_player::Root, players: &all_players::Root) -> Self {
-        OpponantTeam { opponants: OpponantTeam::build_opponant_team(active_player, players) }
+        OpponantTeam {
+            opponants: OpponantTeam::build_opponant_team(active_player, players),
+        }
     }
 
-    pub fn build_opponant_team(active_player: &active_player::Root, players: &all_players::Root) -> Vec<(String, i64)> {
+    pub fn build_opponant_team(
+        active_player: &active_player::Root,
+        players: &all_players::Root,
+    ) -> Vec<(String, i64)> {
         let mut opponant_list = Vec::new();
         for i in 0..players.all_players.len() {
             let team = players.all_players[i].team.clone();
             if get_team(active_player, players).1 != team {
                 opponant_list.push((
-                    players.all_players[i].champion_name
+                    players.all_players[i]
+                        .champion_name
                         .clone()
                         .replace('\'', "")
-                        .replace(" ", ""),
-                    players.all_players[i].level));
+                        .replace(' ', ""),
+                    players.all_players[i].level,
+                ));
             }
         }
         opponant_list

@@ -25,7 +25,7 @@ pub fn match_champion(name: &str) -> ActiveChampion {
 // }
 
 // #[derive(Debug, Deserialize)]
-// pub enum Champion {	
+// pub enum Champion {
 //     Aatrox	{ stats: Stats, },
 //     Ahri    { stats: Stats, },
 //     Akali	{ stats: Stats, },
