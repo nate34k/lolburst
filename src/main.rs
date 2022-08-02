@@ -4,17 +4,18 @@ extern crate log;
 
 use crate::champions::orianna;
 use crate::utils::{deserializer, resistance, teams};
-use log::info;
-use reqwest::Client;
-use serde_json::Value;
-use std::env;
-use tokio::time::{sleep, Duration};
+use champions::ActiveChampion;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use log::info;
+use reqwest::Client;
+use serde_json::Value;
+use std::env;
 use std::{error::Error, io};
+use tokio::time::{sleep, Duration};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Layout},
@@ -22,6 +23,7 @@ use tui::{
     widgets::{Block, Borders, Cell, Row, Table, TableState},
     Frame, Terminal,
 };
+use utils::teams::OpponantTeam;
 
 mod active_player;
 mod all_players;
@@ -29,7 +31,6 @@ mod champions;
 mod dmg;
 mod network;
 mod utils;
-
 
 #[derive(Debug)]
 pub struct AbilityRanks {
@@ -48,6 +49,27 @@ impl AbilityRanks {
             r_rank,
         }
     }
+}
+
+fn display_data(
+    champion: &ActiveChampion,
+    active_player_data: &active_player::Root,
+    ability_ranks: &AbilityRanks,
+    opponant_team: OpponantTeam,
+    resistance: resistance::Resistance,
+) -> Vec<(String, f64, i64)> {
+    let mut ret = Vec::new();
+    // Loop to print burst dmg against each enemy champion
+    for i in 0..opponant_team.opponants.len() {
+        let r = dmg::Resistance::new(resistance.armor[i], resistance.magic_resist[i]);
+        let burst_dmg = dmg::burst_dmg(&champion, &active_player_data, &ability_ranks, r);
+        ret.push((
+            opponant_team.opponants[i].0.clone(),
+            burst_dmg,
+            opponant_team.opponants[i].1,
+        ));
+    }
+    ret
 }
 
 #[tokio::main]
@@ -80,10 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-
 }
-
-
 
 struct App<'a> {
     state: TableState,
@@ -172,12 +191,12 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App<'_>) -> io
     loop {
         let (active_player_data, all_player_data) =
             deserializer::deserializer(&deserializer_params).await;
-    
+
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
-    
+
         let resistance =
             resistance::Resistance::new(&active_player_data, &all_player_data, &ddragon_data);
-    
+
         // Set a Vec<f64> for opponant AR values
         let mut ar = Vec::new();
         for i in 0..opponant_team.opponants.len() {
@@ -192,7 +211,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App<'_>) -> io
             let scaled_mr = base_mr + (mr_per_level * (level - 1.0));
             ar.push(scaled_mr)
         }
-    
+
         // Other data we need to print
         let ability_ranks = AbilityRanks::new(
             active_player_data.abilities.q.ability_level,
@@ -200,34 +219,36 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App<'_>) -> io
             active_player_data.abilities.e.ability_level,
             active_player_data.abilities.r.ability_level,
         );
-    
+
         // Loop to print burst dmg against each enemy champion
-        for i in 0..opponant_team.opponants.len() {
-            let r = dmg::Resistance::new(resistance.armor[i], resistance.magic_resist[i]);
-            println!(
-                "Burst is {:.1} vs {}",
-                dmg::burst_dmg(&champion, &active_player_data, &ability_ranks, r),
-                opponant_team.opponants[i].0
-            );
-        }
+        // for i in 0..opponant_team.opponants.len() {
+        //     let r = dmg::Resistance::new(resistance.armor[i], resistance.magic_resist[i]);
+        //     println!(
+        //         "Burst is {:.1} vs {}",
+        //         dmg::burst_dmg(&champion, &active_player_data, &ability_ranks, r),
+        //         opponant_team.opponants[i].0
+        //     );
+        // }
+        let display_data = display_data(&champion, &active_player_data, &ability_ranks, opponant_team, resistance);
+        terminal.draw(|f| ui(f, &mut app))?;
+
         app.items = vec![
-            vec!["Row11", stringify!(10.0), "Row13"],
+            vec![display_data[0].0.as_str(), stringify!(display_data[0].1), stringify!(display_data[0].2)],
             vec!["Row21", "Row22", "Row23"],
             vec!["Row31", "Row32", "Row33"],
             vec!["Row41", "Row42", "Row43"],
             vec!["Row51", "Row52", "Row53"],
         ];
-        println!("================================");
-    
+        // println!("================================");
+
         // Sleep for 5 seconds between running the loop again to save resources
-        sleep(Duration::from_secs(
-            env::var("SAMPLE_RATE")
-                .unwrap_or_else(|_| String::from("15"))
-                .parse::<u64>()
-                .unwrap_or(15),
-        ))
-        .await;
-        terminal.draw(|f| ui(f, &mut app))?;
+        // sleep(Duration::from_secs(
+        //     env::var("SAMPLE_RATE")
+        //         .unwrap_or_else(|_| String::from("15"))
+        //         .parse::<u64>()
+        //         .unwrap_or(15),
+        // ))
+        // .await;
 
         if let Event::Key(key) = event::read()? {
             match key.code {
