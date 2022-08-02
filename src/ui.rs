@@ -1,9 +1,9 @@
 use tui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Block, Borders, Cell, Row, Table},
-    Frame,
+    layout::{Constraint, Direction, Layout, Rect, Alignment},
+    style::{Color, Style, Modifier},
+    widgets::{Block, Borders, Cell, Row, Table, Paragraph},
+    Frame, text::Span,
 };
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerWidget};
 
@@ -23,21 +23,29 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     let rects = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
-            Constraint::Length(13),
+            Constraint::Length(16),
             Constraint::Percentage(100),
-            Constraint::Min(15),
         ])
         .split(inner_area);
 
-    // Define a layout for the tables
+    // Define a layout for data area
     let data_rects = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![
             Constraint::Length(35),
             Constraint::Percentage(100),
-            Constraint::Min(35),
         ])
         .split(rects[0]);
+
+    // Define a layout for stats rects
+    let stats_rects = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
+        .split(data_rects[1]);
 
     // Define formatting for burst table
     // Set the bg style
@@ -74,41 +82,33 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         ]);
     f.render_stateful_widget(t, data_rects[0], &mut app.burst_table_state);
 
-    // Define formatting for burst table
-    // Set the bg style
-    let stats_normal_style = Style::default().bg(Color::Magenta);
-    // Set the header cell names and style
-    let stats_header_cells = ["Gold per min", "CS per min", "VS per min"]
-        .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::DarkGray)));
-    // Set the header row
-    let stats_header = Row::new(stats_header_cells)
-        .style(stats_normal_style)
-        .height(1)
-        .bottom_margin(1);
-    // Set table rows
-    let stats_rows = app.stats_table_items.iter().map(|item| {
-        let height = item
-            .iter()
-            .map(|content| content.chars().filter(|c| *c == '\n').count())
-            .max()
-            .unwrap_or(0)
-            + 1;
-        let cells = item.iter().map(|c| Cell::from(c.as_str()));
-        Row::new(cells).height(height as u16).bottom_margin(1)
-    });
+    let create_block = |title| {
+        Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default().bg(Color::Black).fg(Color::White))
+            .title(Span::styled(
+                title,
+                Style::default().add_modifier(Modifier::BOLD),
+            ))
+    };
 
-    // Define and render the burst table
-    let t = Table::new(stats_rows)
-        .header(stats_header)
-        .block(Block::default().borders(Borders::ALL).title("stats"))
-        .widths(&[
-            Constraint::Length(12),
-            Constraint::Length(10),
-            Constraint::Length(10),
-        ]);
-    f.render_stateful_widget(t, data_rects[1], &mut app.burst_table_state);
+    let paragraph = Paragraph::new(app.gold_per_min.clone())
+        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .block(create_block("Gold Per Minute"))
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, stats_rects[0]);
+    let paragraph = Paragraph::new(app.cs_per_min.clone())
+        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .block(create_block("CS Per Minute"))
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, stats_rects[1]);
+    let paragraph = Paragraph::new(app.vs_per_min.clone())
+        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .block(create_block("VS Per Minute"))
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, stats_rects[2]);
 
+    // Define formatting for log widget
     let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
         .block(
             Block::default()
@@ -127,5 +127,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .style_warn(Style::default().fg(Color::Yellow))
         .style_trace(Style::default().fg(Color::Magenta))
         .style_info(Style::default().fg(Color::Cyan));
+
+    // Render the log widget
     f.render_widget(tui_w, rects[1]);
 }
