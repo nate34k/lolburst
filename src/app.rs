@@ -13,8 +13,10 @@ use crate::{
 };
 
 pub struct App {
-    pub state: TableState,
-    pub items: Vec<Vec<String>>,
+    pub burst_table_state: TableState,
+    pub burst_table_items: Vec<Vec<String>>,
+    pub stats_table_state: TableState,
+    pub stats_table_items: Vec<Vec<String>>,
     pub use_sample_data: bool,
     pub active_player_json_url: String,
     pub active_player_json_sample: String,
@@ -25,8 +27,8 @@ pub struct App {
 impl App {
     pub fn new() -> App {
         App {
-            state: TableState::default(),
-            items: vec![
+            burst_table_state: TableState::default(),
+            burst_table_items: vec![
                 vec![
                     "Row11".to_string(),
                     "Row12".to_string(),
@@ -51,6 +53,14 @@ impl App {
                     "Row51".to_string(),
                     "Row52".to_string(),
                     "Row53".to_string(),
+                ],
+            ],
+            stats_table_state: TableState::default(),
+            stats_table_items: vec![
+                vec![
+                    "Row11".to_string(),
+                    "Row12".to_string(),
+                    "Row13".to_string(),
                 ],
             ],
             use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
@@ -99,7 +109,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             active_player_data.abilities.r.ability_level,
         );
 
-        app.items = build_enemy_team_display_data(
+        app.burst_table_items = build_enemy_team_display_data(
             &champion,
             active_player_data,
             ability_ranks,
