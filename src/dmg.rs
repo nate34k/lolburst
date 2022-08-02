@@ -1,4 +1,7 @@
-use crate::{active_player, champions::ActiveChampion};
+use crate::{
+    active_player::{self, AbilityRanks},
+    champions::ActiveChampion,
+};
 
 pub struct Resistance {
     pub armor: f64,
@@ -17,7 +20,7 @@ impl Resistance {
 pub fn burst_dmg(
     active_champion: &ActiveChampion,
     active_player: &active_player::Root,
-    ability_ranks: &super::AbilityRanks,
+    ability_ranks: &AbilityRanks,
     resistance: Resistance,
 ) -> f64 {
     match active_champion {

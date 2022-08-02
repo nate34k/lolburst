@@ -1,4 +1,4 @@
-use crate::{active_player, all_players, network, app::App};
+use crate::{active_player, all_players, app::App, network};
 use reqwest::Client;
 use std::fs;
 
@@ -31,9 +31,7 @@ use std::fs;
 //     }
 // }
 
-pub async fn deserializer(
-    app: &App, client: &Client,
-) -> (active_player::Root, all_players::Root) {
+pub async fn deserializer(app: &App, client: &Client) -> (active_player::Root, all_players::Root) {
     let active_player_data: active_player::Root;
     let all_player_data: all_players::Root;
 

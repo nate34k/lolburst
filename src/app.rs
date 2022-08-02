@@ -1,11 +1,16 @@
 use std::{env, io, time::Duration};
 
-use crossterm::event::{self, KeyCode, Event};
+use crossterm::event::{self, Event, KeyCode};
 use reqwest::Client;
 use serde_json::Value;
-use tui::{widgets::TableState, backend::Backend, Terminal};
+use tui::{backend::Backend, widgets::TableState, Terminal};
 
-use crate::{network, utils::{deserializer, teams, resistance}, champions, AbilityRanks, build_enemy_team_display_data, ui};
+use crate::{
+    active_player::{self, AbilityRanks},
+    champions::{self, ActiveChampion},
+    dmg, network, ui,
+    utils::{deserializer, resistance, teams},
+};
 
 pub struct App {
     pub state: TableState,
@@ -61,7 +66,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
     let client: Client = network::build_client().await;
 
     if app.use_sample_data {
-        info!("use_sample_data is true, using JSON files in resources dir");
+        info!("use_sample_data is true, using JSON files in resources directory");
     }
 
     let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
@@ -77,9 +82,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     let champion = champions::match_champion("Orianna");
 
+    // Applicaiton loop
     loop {
-        let (active_player_data, all_player_data) =
-            deserializer::deserializer(&app, &client).await;
+        let (active_player_data, all_player_data) = deserializer::deserializer(&app, &client).await;
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
@@ -93,7 +98,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             active_player_data.abilities.e.ability_level,
             active_player_data.abilities.r.ability_level,
         );
-        
+
         app.items = build_enemy_team_display_data(
             &champion,
             active_player_data,
@@ -101,11 +106,11 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             opponant_team,
             resistance,
         );
-        
+
         info!("Drawing UI");
         terminal.draw(|mut f| {
             let size = f.size();
-            ui(&mut f, size, &mut app);
+            ui::ui(&mut f, size, &mut app);
         })?;
 
         if crossterm::event::poll(Duration::from_millis(
@@ -119,4 +124,25 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             }
         }
     }
+}
+
+fn build_enemy_team_display_data<'a>(
+    champion: &'a ActiveChampion,
+    active_player_data: active_player::Root,
+    ability_ranks: AbilityRanks,
+    opponant_team: teams::OpponantTeam,
+    resistance: resistance::Resistance,
+) -> Vec<Vec<String>> {
+    let mut ret = Vec::new();
+    // Loop to print burst dmg against each enemy champion
+    for i in 0..opponant_team.opponants.len() {
+        let mut row = Vec::new();
+        let r = dmg::Resistance::new(resistance.armor[i], resistance.magic_resist[i]);
+        let burst_dmg = dmg::burst_dmg(&champion, &active_player_data, &ability_ranks, r);
+        row.push(opponant_team.opponants[i].0.clone());
+        row.push(opponant_team.opponants[i].1.to_string());
+        row.push(burst_dmg.floor().to_string());
+        ret.push(row);
+    }
+    ret
 }
