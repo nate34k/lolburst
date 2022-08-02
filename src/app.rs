@@ -1,0 +1,122 @@
+use std::{env, io, time::Duration};
+
+use crossterm::event::{self, KeyCode, Event};
+use reqwest::Client;
+use serde_json::Value;
+use tui::{widgets::TableState, backend::Backend, Terminal};
+
+use crate::{network, utils::{deserializer, teams, resistance}, champions, AbilityRanks, build_enemy_team_display_data, ui};
+
+pub struct App {
+    pub state: TableState,
+    pub items: Vec<Vec<String>>,
+    pub use_sample_data: bool,
+    pub active_player_json_url: String,
+    pub active_player_json_sample: String,
+    pub all_players_json_url: String,
+    pub all_players_json_sample: String,
+}
+
+impl App {
+    pub fn new() -> App {
+        App {
+            state: TableState::default(),
+            items: vec![
+                vec![
+                    "Row11".to_string(),
+                    "Row12".to_string(),
+                    "Row13".to_string(),
+                ],
+                vec![
+                    "Row21".to_string(),
+                    "Row22".to_string(),
+                    "Row23".to_string(),
+                ],
+                vec![
+                    "Row31".to_string(),
+                    "Row32".to_string(),
+                    "Row33".to_string(),
+                ],
+                vec![
+                    "Row41".to_string(),
+                    "Row42".to_string(),
+                    "Row43".to_string(),
+                ],
+                vec![
+                    "Row51".to_string(),
+                    "Row52".to_string(),
+                    "Row53".to_string(),
+                ],
+            ],
+            use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
+            active_player_json_url: env::var("ACTIVE_PLAYER_URL").unwrap(),
+            active_player_json_sample: env::var("ACTIVE_PLAYER_JSON_SAMPLE").unwrap(),
+            all_players_json_url: env::var("ALL_PLAYERS_URL").unwrap(),
+            all_players_json_sample: env::var("ALL_PLAYERS_JSON_SAMPLE").unwrap(),
+        }
+    }
+}
+
+pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+    let client: Client = network::build_client().await;
+
+    if app.use_sample_data {
+        info!("use_sample_data is true, using JSON files in resources dir");
+    }
+
+    let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
+
+    let ddragon_data: Value = serde_json::from_str(
+        &network::request(&client, ddragon_url)
+            .await
+            .text()
+            .await
+            .expect("Failed to parse data for String"),
+    )
+    .expect("Failed to deserialize String into JSON Value");
+
+    let champion = champions::match_champion("Orianna");
+
+    loop {
+        let (active_player_data, all_player_data) =
+            deserializer::deserializer(&app, &client).await;
+
+        let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
+
+        let resistance =
+            resistance::Resistance::new(&active_player_data, &all_player_data, &ddragon_data);
+
+        // Other data we need to print
+        let ability_ranks = AbilityRanks::new(
+            active_player_data.abilities.q.ability_level,
+            active_player_data.abilities.w.ability_level,
+            active_player_data.abilities.e.ability_level,
+            active_player_data.abilities.r.ability_level,
+        );
+        
+        app.items = build_enemy_team_display_data(
+            &champion,
+            active_player_data,
+            ability_ranks,
+            opponant_team,
+            resistance,
+        );
+        
+        info!("Drawing UI");
+        terminal.draw(|mut f| {
+            let size = f.size();
+            ui(&mut f, size, &mut app);
+        })?;
+
+        if crossterm::event::poll(Duration::from_millis(
+            env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
+        ))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::F(12) => return Ok(()),
+                    _ => {}
+                }
+            }
+        }
+    }
+}

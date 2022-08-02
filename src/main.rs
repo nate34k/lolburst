@@ -13,21 +13,23 @@ use crossterm::{
 use log::info;
 use reqwest::Client;
 use serde_json::Value;
-use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 use std::env;
-use std::{error::Error, io};
-use tokio::time::{sleep, Duration};
+use std::io;
+use tokio::time::Duration;
+use tui::layout::{Direction, Rect};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Layout},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     widgets::{Block, Borders, Cell, Row, Table, TableState},
     Frame, Terminal,
 };
+use tui_logger::{TuiLoggerLevelOutput, TuiLoggerWidget};
 use utils::teams::OpponantTeam;
 
 mod active_player;
 mod all_players;
+mod app;
 mod champions;
 mod dmg;
 mod network;
@@ -52,7 +54,7 @@ impl AbilityRanks {
     }
 }
 
-fn display_data<'a>(
+fn build_enemy_team_display_data<'a>(
     champion: &'a ActiveChampion,
     active_player_data: active_player::Root,
     ability_ranks: AbilityRanks,
@@ -75,9 +77,9 @@ fn display_data<'a>(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env::set_var("RUST_LOG", "trace");
+    // env::set_var("RUST_LOG", "trace");
     dotenv::dotenv().expect("Failed to load env from .env");
-    
+
     // Early initialization of the logger
 
     // Set max_log_level to Trace
@@ -94,8 +96,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let app = App::new();
-    let res = run_app(&mut terminal, app).await;
+    let app = app::App::new();
+    let res = app::run_app(&mut terminal, app).await;
 
     // restore terminal
     disable_raw_mode()?;
@@ -113,170 +115,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-struct App {
-    state: TableState,
-    items: Vec<Vec<String>>,
-}
-
-impl App {
-    fn new() -> App {
-        App {
-            state: TableState::default(),
-            items: vec![
-                vec!["Row11".to_string(), "Row12".to_string(), "Row13".to_string()],
-                vec![
-                    "Row21".to_string(),
-                    "Row22".to_string(),
-                    "Row23".to_string(),
-                ],
-                vec![
-                    "Row31".to_string(),
-                    "Row32".to_string(),
-                    "Row33".to_string(),
-                ],
-                vec![
-                    "Row41".to_string(),
-                    "Row42".to_string(),
-                    "Row43".to_string(),
-                ],
-                vec![
-                    "Row51".to_string(),
-                    "Row52".to_string(),
-                    "Row53".to_string(),
-                ],
-            ],
-        }
-    }
-    pub fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.items.len() - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    pub fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.items.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-}
-
-async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
-    let active_player_json_locations = deserializer::JSONDataLocations {
-        url: env::var("ACTIVE_PLAYER_URL").unwrap(),
-        json: env::var("ACTIVE_PLAYER_JSON").unwrap(),
-    };
-
-    let all_player_json_locations = deserializer::JSONDataLocations {
-        url: env::var("ALL_PLAYERS_URL").unwrap(),
-        json: env::var("ALL_PLAYERS_JSON").unwrap(),
-    };
-
-    let client: Client = network::build_client().await;
-
-    let deserializer_params = deserializer::DeserializerParams {
-        use_sample_json: true,
-        active_player_json_locations,
-        all_player_json_locations,
-        client: &client,
-    };
-
-    if deserializer_params.use_sample_json {
-        info!("use_sample_json is true. Using JSON files in resources dir.");
-    }
-
-    let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
-
-    let ddragon_data: Value = serde_json::from_str(
-        &network::request(&client, ddragon_url)
-            .await
-            .text()
-            .await
-            .expect("Failed to parse data for String"),
-    )
-    .expect("Failed to deserialize String into JSON Value");
-
-    let champion = champions::match_champion("Orianna");
-
-    loop {
-        let (active_player_data, all_player_data) =
-            deserializer::deserializer(&deserializer_params).await;
-
-        let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
-
-        let resistance =
-            resistance::Resistance::new(&active_player_data, &all_player_data, &ddragon_data);
-
-        // Other data we need to print
-        let ability_ranks = AbilityRanks::new(
-            active_player_data.abilities.q.ability_level,
-            active_player_data.abilities.w.ability_level,
-            active_player_data.abilities.e.ability_level,
-            active_player_data.abilities.r.ability_level,
-        );
-
-        // let display_data = ;
-
-        app.items = display_data(
-            &champion,
-            active_player_data,
-            ability_ranks,
-            opponant_team,
-            resistance,
-        );
-        // println!("================================");
-
-        // Sleep for 5 seconds between running the loop again to save resources
-        // sleep(Duration::from_secs(
-        //     env::var("SAMPLE_RATE")
-        //         .unwrap_or_else(|_| String::from("15"))
-        //         .parse::<u64>()
-        //         .unwrap_or(15),
-        // ))
-        // .await;
-        terminal.draw(|f| ui(f, &mut app))?;
-
-        // if let Event::Key(key) = event::read()? {
-        //     match key.code {
-        //         KeyCode::Char('q') => return Ok(()),
-        //         _ => {}
-        //     }
-        // }
-
-        if crossterm::event::poll(Duration::from_millis(
-            env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
-        ))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::F(12) => return Ok(()),
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
-fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
+    let block = Block::default().borders(Borders::ALL);
+    let inner_area = block.inner(size);
+    f.render_widget(block, size);
+    let constraints = vec![
+        Constraint::Length(13),
+        Constraint::Percentage(100),
+        Constraint::Min(15),
+    ];
     let rects = Layout::default()
-        .constraints([Constraint::Percentage(100)].as_ref())
-        .split(f.size());
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(inner_area);
 
-    let selected_style = Style::default().add_modifier(Modifier::REVERSED);
     let normal_style = Style::default().bg(Color::Blue);
     let header_cells = ["Champion", "Level", "Burst"]
         .iter()
@@ -298,8 +150,6 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let t = Table::new(rows)
         .header(header)
         .block(Block::default().borders(Borders::ALL).title("lolburst"))
-        .highlight_style(selected_style)
-        .highlight_symbol(">> ")
         .widths(&[
             Constraint::Length(12),
             Constraint::Length(5),
@@ -309,7 +159,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
         .block(
             Block::default()
-                .title("Independent Tui Logger View")
+                .title("Log")
                 .border_style(Style::default().fg(Color::White).bg(Color::Black))
                 .borders(Borders::ALL),
         )
@@ -319,6 +169,10 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .output_target(false)
         .output_file(false)
         .output_line(false)
-        .style(Style::default().fg(Color::White).bg(Color::Black));
+        .style_error(Style::default().fg(Color::Red))
+        .style_debug(Style::default().fg(Color::Green))
+        .style_warn(Style::default().fg(Color::Yellow))
+        .style_trace(Style::default().fg(Color::Magenta))
+        .style_info(Style::default().fg(Color::Cyan));
     f.render_widget(tui_w, rects[1]);
 }
