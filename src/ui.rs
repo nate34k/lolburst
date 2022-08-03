@@ -42,8 +42,8 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .direction(Direction::Horizontal)
         .constraints(vec![
             Constraint::Percentage(33),
-            Constraint::Percentage(33),
             Constraint::Percentage(34),
+            Constraint::Percentage(33),
         ])
         .split(data_rects[1]);
 
