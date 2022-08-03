@@ -1,4 +1,4 @@
-use std::{env, io, time::Duration};
+use std::{collections::VecDeque, env, io, time::Duration};
 
 use crossterm::event::{self, Event, KeyCode};
 use reqwest::Client;
@@ -15,7 +15,10 @@ use crate::{
 pub struct App {
     pub burst_table_state: TableState,
     pub burst_table_items: Vec<Vec<String>>,
+    pub gold_last_tick: f64,
+    pub  gold_total: f64,
     pub gold_per_min: String,
+    pub gold_per_min_past_10: VecDeque<(f64, f64)>,
     pub cs_per_min: String,
     pub vs_per_min: String,
     pub use_sample_data: bool,
@@ -23,6 +26,8 @@ pub struct App {
     pub active_player_json_sample: String,
     pub all_players_json_url: String,
     pub all_players_json_sample: String,
+    pub game_stats_url: String,
+    pub game_stats_json_sample: String,
 }
 
 impl App {
@@ -56,7 +61,21 @@ impl App {
                     "Row53".to_string(),
                 ],
             ],
+            gold_last_tick: 0.0,
+            gold_total: 0.0,
             gold_per_min: "42".to_string(),
+            gold_per_min_past_10: VecDeque::from([
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+            ]),
             cs_per_min: "42".to_string(),
             vs_per_min: "42".to_string(),
             use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
@@ -64,7 +83,33 @@ impl App {
             active_player_json_sample: env::var("ACTIVE_PLAYER_JSON_SAMPLE").unwrap(),
             all_players_json_url: env::var("ALL_PLAYERS_URL").unwrap(),
             all_players_json_sample: env::var("ALL_PLAYERS_JSON_SAMPLE").unwrap(),
+            game_stats_url: env::var("GAME_STATS_URL").unwrap(),
+            game_stats_json_sample: env::var("GAME_STATS_JSON_SAMPLE").unwrap(),
         }
+    }
+
+    fn on_tick(&mut self, gold_total: f64, game_duration: f64) {
+        self.gold_per_min_past_10.pop_front();
+        self.gold_per_min_past_10.push_back((
+            get_gold_per_min(gold_total, game_duration),
+            game_duration.floor(),
+        ));
+    }
+
+    pub fn vec_to_f64_10_arr(v: &VecDeque<(f64, f64)>) -> [(f64, f64); 10] {
+        let mut arr = [(0.0, 0.0); 10];
+        for (i, (gold, time)) in v.iter().enumerate() {
+            arr[i] = (*gold , *time);
+        }
+        arr
+    }
+
+    pub fn get_x_bounds(&self) -> [f64; 2] {
+        [0.0, self.gold_per_min_past_10.back().unwrap().1]
+    }
+
+    pub fn get_y_bounds(&self) -> [f64; 2] {
+        [0.0, self.gold_per_min_past_10.back().unwrap().0 * 2.0]
     }
 }
 
@@ -90,7 +135,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     // Applicaiton loop
     loop {
-        let (active_player_data, all_player_data) = deserializer::deserializer(&app, &client).await;
+        let (active_player_data, all_player_data, game_data) = deserializer::deserializer(&app, &client).await;
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
@@ -107,11 +152,19 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
         app.burst_table_items = build_enemy_team_display_data(
             &champion,
-            active_player_data,
+            &active_player_data,
             ability_ranks,
             opponant_team,
             resistance,
         );
+
+        app.gold_total = get_total_gold_earned(&active_player_data.current_gold, &app.gold_last_tick, &app.gold_total);
+        app.gold_last_tick = active_player_data.current_gold;
+        app.on_tick(app.gold_total, game_data.game_time);
+        app.gold_per_min = get_gold_per_min(app.gold_total, game_data.game_time).to_string();
+        info!("x_bounds: {:?}", app.get_x_bounds());
+        info!("y_bounds: {:?}", app.get_y_bounds());
+        info!("{:?}", App::vec_to_f64_10_arr(&app.gold_per_min_past_10));
 
         info!("Drawing UI");
         terminal.draw(|mut f| {
@@ -134,7 +187,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
 fn build_enemy_team_display_data<'a>(
     champion: &'a ActiveChampion,
-    active_player_data: active_player::Root,
+    active_player_data: &active_player::Root,
     ability_ranks: AbilityRanks,
     opponant_team: teams::OpponantTeam,
     resistance: resistance::Resistance,
@@ -151,4 +204,16 @@ fn build_enemy_team_display_data<'a>(
         ret.push(row);
     }
     ret
+}
+
+fn get_total_gold_earned(current_gold: &f64, gold_last_tick: &f64, gold_total: &f64) -> f64 {
+    if current_gold <= gold_last_tick {
+        *gold_total
+    } else {
+        (current_gold - gold_last_tick) + gold_total
+    }
+}
+
+fn get_gold_per_min(gold_total: f64, game_time: f64) -> f64 {
+    (gold_total.floor() / (game_time / 60.0)).floor()
 }

@@ -1,9 +1,11 @@
 use tui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect, Alignment},
-    style::{Color, Style, Modifier},
-    widgets::{Block, Borders, Cell, Row, Table, Paragraph},
-    Frame, text::Span,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    symbols,
+    text::Span,
+    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table},
+    Frame,
 };
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerWidget};
 
@@ -22,38 +24,46 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     // Define a layout for inner_area
     let rects = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Length(16),
-            Constraint::Percentage(100),
-        ])
+        .constraints(vec![Constraint::Length(16), Constraint::Percentage(100)])
         .split(inner_area);
 
     // Define a layout for data area
     let data_rects = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(vec![
-            Constraint::Length(35),
-            Constraint::Percentage(100),
-        ])
+        .constraints(vec![Constraint::Length(35), Constraint::Percentage(100)])
         .split(rects[0]);
 
-    // Define a layout for stats rects
     let stats_rects = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Length(3), Constraint::Percentage(90)])
+        .split(data_rects[1]);
+
+    // Define a layout for stats rects
+    let paragraph_stats_rects = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![
             Constraint::Percentage(33),
             Constraint::Percentage(34),
             Constraint::Percentage(33),
         ])
-        .split(data_rects[1]);
+        .split(stats_rects[0]);
+
+    let chart_stats_rects = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+            Constraint::Percentage(33),
+        ])
+        .split(stats_rects[1]);
 
     // Define formatting for burst table
     // Set the bg style
-    let burst_normal_style = Style::default().bg(Color::Blue);
+    let burst_normal_style = Style::default();
     // Set the header cell names and style
     let burst_header_cells = ["Champion", "Level", "Burst"]
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::DarkGray)));
+        .map(|h| Cell::from(*h).style(Style::default().fg(Color::LightBlue)));
     // Set the header row
     let burst_header = Row::new(burst_header_cells)
         .style(burst_normal_style)
@@ -85,7 +95,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     let create_block = |title| {
         Block::default()
             .borders(Borders::ALL)
-            .style(Style::default().bg(Color::Black).fg(Color::White))
+            .style(Style::default().fg(Color::White))
             .title(Span::styled(
                 title,
                 Style::default().add_modifier(Modifier::BOLD),
@@ -93,27 +103,68 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     };
 
     let paragraph = Paragraph::new(app.gold_per_min.clone())
-        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .style(Style::default().fg(Color::White))
         .block(create_block("Gold Per Minute"))
         .alignment(Alignment::Center);
-    f.render_widget(paragraph, stats_rects[0]);
+    f.render_widget(paragraph, paragraph_stats_rects[0]);
     let paragraph = Paragraph::new(app.cs_per_min.clone())
-        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .style(Style::default().fg(Color::White))
         .block(create_block("CS Per Minute"))
         .alignment(Alignment::Center);
-    f.render_widget(paragraph, stats_rects[1]);
+    f.render_widget(paragraph, paragraph_stats_rects[1]);
     let paragraph = Paragraph::new(app.vs_per_min.clone())
-        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .style(Style::default().fg(Color::White))
         .block(create_block("VS Per Minute"))
         .alignment(Alignment::Center);
-    f.render_widget(paragraph, stats_rects[2]);
+    f.render_widget(paragraph, paragraph_stats_rects[2]);
+
+    let gpm = &app::App::vec_to_f64_10_arr(&app.gold_per_min_past_10.clone());
+    let datasets = vec![Dataset::default()
+        .name("data1")
+        .marker(symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
+        .style(Style::default().fg(Color::Magenta))
+        .data(gpm)];
+    let c = Chart::new(datasets)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Gold Per Minute"),
+        )
+        .x_axis(
+            Axis::default()
+                .title(Span::styled("Time", Style::default().fg(Color::Red)))
+                .style(Style::default().fg(Color::White))
+                .bounds(app.get_x_bounds())
+                .labels(
+                    ["0.0", "5.0", "10.0"]
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
+        )
+        .y_axis(
+            Axis::default()
+                .title(Span::styled("Gold", Style::default().fg(Color::Red)))
+                .style(Style::default().fg(Color::White))
+                .bounds(app.get_y_bounds())
+                .labels(
+                    ["0.0", "5.0", "10.0"]
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
+        );
+    f.render_widget(c, chart_stats_rects[0]);
 
     // Define formatting for log widget
     let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
         .block(
             Block::default()
                 .title("Log")
-                .border_style(Style::default().fg(Color::White).bg(Color::Black))
+                .border_style(Style::default().bg(Color::Reset))
                 .borders(Borders::ALL),
         )
         .output_separator('|')

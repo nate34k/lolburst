@@ -20,6 +20,7 @@ mod dmg;
 mod network;
 mod ui;
 mod utils;
+mod game_data;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Early initialization of the logger
 
     // Set max_log_level to Trace
-    tui_logger::init_logger(log::LevelFilter::Trace).unwrap();
+    tui_logger::init_logger(log::LevelFilter::Debug).unwrap();
 
     // Set default level for unknown targets to Trace
     tui_logger::set_default_level(log::LevelFilter::Trace);
