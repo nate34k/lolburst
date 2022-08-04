@@ -118,13 +118,12 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .alignment(Alignment::Center);
     f.render_widget(paragraph, paragraph_stats_rects[2]);
 
-    let gpm = &app::App::vec_to_f64_10_arr(&app.gold_per_min_past_10.clone());
     let datasets = vec![Dataset::default()
         .name("data1")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(Style::default().fg(Color::Magenta))
-        .data(gpm)];
+        .data(&app.gold_per_min_arr)];
     let c = Chart::new(datasets)
         .block(
             Block::default()
@@ -133,11 +132,11 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         )
         .x_axis(
             Axis::default()
-                .title(Span::styled("Time", Style::default().fg(Color::Red)))
-                .style(Style::default().fg(Color::White))
-                .bounds(app.get_x_bounds())
+                .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
+                .style(Style::default())
+                .bounds(app.get_gold_x_bounds())
                 .labels(
-                    ["0.0", "5.0", "10.0"]
+                    app.get_gold_x_bounds_labels()
                         .iter()
                         .cloned()
                         .map(Span::from)
@@ -146,11 +145,11 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         )
         .y_axis(
             Axis::default()
-                .title(Span::styled("Gold", Style::default().fg(Color::Red)))
-                .style(Style::default().fg(Color::White))
-                .bounds(app.get_y_bounds())
+                .title(Span::styled("Gold", Style::default().fg(Color::DarkGray)))
+                .style(Style::default())
+                .bounds(app.get_gold_y_bounds())
                 .labels(
-                    ["0.0", "5.0", "10.0"]
+                    app.get_y_bounds_labels()
                         .iter()
                         .cloned()
                         .map(Span::from)

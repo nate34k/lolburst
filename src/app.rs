@@ -16,9 +16,10 @@ pub struct App {
     pub burst_table_state: TableState,
     pub burst_table_items: Vec<Vec<String>>,
     pub gold_last_tick: f64,
-    pub  gold_total: f64,
+    pub gold_total: f64,
     pub gold_per_min: String,
-    pub gold_per_min_past_10: VecDeque<(f64, f64)>,
+    pub gold_per_min_past_20: VecDeque<(f64, f64)>,
+    pub gold_per_min_arr: [(f64, f64); 20],
     pub cs_per_min: String,
     pub vs_per_min: String,
     pub use_sample_data: bool,
@@ -64,18 +65,8 @@ impl App {
             gold_last_tick: 0.0,
             gold_total: 0.0,
             gold_per_min: "42".to_string(),
-            gold_per_min_past_10: VecDeque::from([
-                (0.0, 305.0),
-                (15.0, 310.0),
-                (30.0, 310.0),
-                (45.0, 325.0),
-                (60.0, 315.0),
-                (75.0, 320.0),
-                (90.0, 335.0),
-                (105.0, 340.0),
-                (120.0, 340.0),
-                (135.0, 330.0),
-            ]),
+            gold_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
+            gold_per_min_arr: [(0.0, 0.0); 20],
             cs_per_min: "42".to_string(),
             vs_per_min: "42".to_string(),
             use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
@@ -88,28 +79,50 @@ impl App {
         }
     }
 
-    fn on_tick(&mut self, gold_total: f64, game_duration: f64) {
-        self.gold_per_min_past_10.pop_front();
-        self.gold_per_min_past_10.push_back((
-            get_gold_per_min(gold_total, game_duration),
-            game_duration.floor(),
-        ));
+    fn on_tick(&mut self, gold_total: f64, game_time: f64) {
+        self.gold_per_min_past_20.pop_front();
+        self.gold_per_min_past_20
+            .push_back((game_time.round(), get_gold_per_min(gold_total, game_time)));
+        self.gold_per_min_past_20
+            .iter()
+            .clone()
+            .enumerate()
+            .for_each(|(i, g)| self.gold_per_min_arr[i] = (g.0, g.1));
     }
 
-    pub fn vec_to_f64_10_arr(v: &VecDeque<(f64, f64)>) -> [(f64, f64); 10] {
-        let mut arr = [(0.0, 0.0); 10];
-        for (i, (gold, time)) in v.iter().enumerate() {
-            arr[i] = (*gold , *time);
-        }
-        arr
+    pub fn get_gold_x_bounds(&self) -> [f64; 2] {
+        [
+            self.gold_per_min_past_20.front().unwrap().0,
+            self.gold_per_min_past_20.back().unwrap().0,
+        ]
     }
 
-    pub fn get_x_bounds(&self) -> [f64; 2] {
-        [self.gold_per_min_past_10.front().unwrap().0, self.gold_per_min_past_10.back().unwrap().0]
+    pub fn get_gold_x_bounds_labels(&self) -> [String; 3] {
+        [
+            format!("{}", self.gold_per_min_past_20.front().unwrap().0),
+            format!(
+                "{}",
+                ((self.gold_per_min_past_20.back().unwrap().0)
+                    - self.gold_per_min_past_20.front().unwrap().0)
+                    / 2.0
+            ),
+            format!("{}", self.gold_per_min_past_20.back().unwrap().0),
+        ]
     }
 
-    pub fn get_y_bounds(&self) -> [f64; 2] {
-        [self.gold_per_min_past_10.front().unwrap().1 * 0.8, self.gold_per_min_past_10.back().unwrap().1 * 1.2]
+    pub fn get_gold_y_bounds(&self) -> [f64; 2] {
+        [
+            self.gold_per_min_past_20.front().unwrap().1 * 0.8,
+            self.gold_per_min_past_20.back().unwrap().1 * 1.2,
+        ]
+    }
+
+    pub fn get_y_bounds_labels(&self) -> [String; 3] {
+        [
+            format!("{:.0}", self.gold_per_min_past_20.front().unwrap().1 * 0.8),
+            format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1),
+            format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1 * 1.2),
+        ]
     }
 }
 
@@ -135,7 +148,8 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     // Applicaiton loop
     loop {
-        let (active_player_data, all_player_data, game_data) = deserializer::deserializer(&app, &client).await;
+        let (active_player_data, all_player_data, game_data) =
+            deserializer::deserializer(&app, &client).await;
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
@@ -158,13 +172,17 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             resistance,
         );
 
-        app.gold_total = get_total_gold_earned(&active_player_data.current_gold, &app.gold_last_tick, &app.gold_total);
+        app.gold_total = get_total_gold_earned(
+            &active_player_data.current_gold,
+            &app.gold_last_tick,
+            &app.gold_total,
+        );
         app.gold_last_tick = active_player_data.current_gold;
-        // app.on_tick(app.gold_total, game_data.game_time);
-        app.gold_per_min = get_gold_per_min(app.gold_total, game_data.game_time).to_string();
-        info!("x_bounds: {:?}", app.get_x_bounds());
-        info!("y_bounds: {:?}", app.get_y_bounds());
-        info!("{:?}", App::vec_to_f64_10_arr(&app.gold_per_min_past_10));
+        app.on_tick(app.gold_total, game_data.game_time);
+        app.gold_per_min = format!("{:.1}", get_gold_per_min(app.gold_total, game_data.game_time));
+        info!("x_bounds: {:?}", app.get_gold_x_bounds());
+        info!("y_bounds: {:?}", app.get_gold_y_bounds());
+        info!("{:?}", &app.gold_per_min_arr);
 
         info!("Drawing UI");
         terminal.draw(|mut f| {
@@ -215,5 +233,9 @@ fn get_total_gold_earned(current_gold: &f64, gold_last_tick: &f64, gold_total: &
 }
 
 fn get_gold_per_min(gold_total: f64, game_time: f64) -> f64 {
-    (gold_total.floor() / (game_time / 60.0)).floor()
+    if game_time < 1.0 {
+        gold_total.floor() / (game_time / 60.0).ceil()
+    } else {
+        gold_total.floor() / (game_time / 60.0)
+    }
 }
