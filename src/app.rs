@@ -65,16 +65,16 @@ impl App {
             gold_total: 0.0,
             gold_per_min: "42".to_string(),
             gold_per_min_past_10: VecDeque::from([
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
-                (0.0, 0.0),
+                (0.0, 305.0),
+                (15.0, 310.0),
+                (30.0, 310.0),
+                (45.0, 325.0),
+                (60.0, 315.0),
+                (75.0, 320.0),
+                (90.0, 335.0),
+                (105.0, 340.0),
+                (120.0, 340.0),
+                (135.0, 330.0),
             ]),
             cs_per_min: "42".to_string(),
             vs_per_min: "42".to_string(),
@@ -105,11 +105,11 @@ impl App {
     }
 
     pub fn get_x_bounds(&self) -> [f64; 2] {
-        [0.0, self.gold_per_min_past_10.back().unwrap().1]
+        [self.gold_per_min_past_10.front().unwrap().0, self.gold_per_min_past_10.back().unwrap().0]
     }
 
     pub fn get_y_bounds(&self) -> [f64; 2] {
-        [0.0, self.gold_per_min_past_10.back().unwrap().0 * 2.0]
+        [self.gold_per_min_past_10.front().unwrap().1 * 0.8, self.gold_per_min_past_10.back().unwrap().1 * 1.2]
     }
 }
 
@@ -160,7 +160,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
         app.gold_total = get_total_gold_earned(&active_player_data.current_gold, &app.gold_last_tick, &app.gold_total);
         app.gold_last_tick = active_player_data.current_gold;
-        app.on_tick(app.gold_total, game_data.game_time);
+        // app.on_tick(app.gold_total, game_data.game_time);
         app.gold_per_min = get_gold_per_min(app.gold_total, game_data.game_time).to_string();
         info!("x_bounds: {:?}", app.get_x_bounds());
         info!("y_bounds: {:?}", app.get_y_bounds());
