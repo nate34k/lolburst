@@ -20,7 +20,10 @@ pub struct App {
     pub gold_per_min: String,
     pub gold_per_min_past_20: VecDeque<(f64, f64)>,
     pub gold_per_min_arr: [(f64, f64); 20],
+    pub cs_total: f64,
     pub cs_per_min: String,
+    pub cs_per_min_past_20: VecDeque<(f64, f64)>,
+    pub cs_per_min_arr: [(f64, f64); 20],
     pub vs_per_min: String,
     pub use_sample_data: bool,
     pub active_player_json_url: String,
@@ -67,7 +70,10 @@ impl App {
             gold_per_min: "42".to_string(),
             gold_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
             gold_per_min_arr: [(0.0, 0.0); 20],
+            cs_total: 0.0,
             cs_per_min: "42".to_string(),
+            cs_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
+            cs_per_min_arr: [(0.0, 0.0); 20],
             vs_per_min: "42".to_string(),
             use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
             active_player_json_url: env::var("ACTIVE_PLAYER_URL").unwrap(),
@@ -79,58 +85,66 @@ impl App {
         }
     }
 
-    fn on_tick(&mut self, gold_total: f64, game_time: f64) {
+    fn on_tick(&mut self, game_time: f64) {
         self.gold_per_min_past_20.pop_front();
         self.gold_per_min_past_20
-            .push_back((game_time.round(), get_gold_per_min(gold_total, game_time)));
+            .push_back((game_time.round(), get_per_min(self.gold_total, game_time)));
         self.gold_per_min_past_20
             .iter()
             .clone()
             .enumerate()
             .for_each(|(i, g)| self.gold_per_min_arr[i] = (g.0, g.1));
+        self.cs_per_min_past_20.pop_front();
+        self.cs_per_min_past_20
+            .push_back((game_time.round(), get_per_min(self.cs_total, game_time)));
+        self.cs_per_min_past_20
+            .iter()
+            .clone()
+            .enumerate()
+            .for_each(|(i, c)| self.cs_per_min_arr[i] = (c.0, c.1));
     }
 
-    pub fn get_gold_x_bounds(&self) -> [f64; 2] {
-        [
-            self.gold_per_min_past_20.front().unwrap().0,
-            self.gold_per_min_past_20.back().unwrap().0,
-        ]
-    }
+    // pub fn get_gold_x_bounds(&self) -> [f64; 2] {
+    //     [
+    //         self.gold_per_min_past_20.front().unwrap().0,
+    //         self.gold_per_min_past_20.back().unwrap().0,
+    //     ]
+    // }
 
-    pub fn get_gold_x_bounds_labels(&self) -> [String; 3] {
-        [
-            format!("{}", self.gold_per_min_past_20.front().unwrap().0),
-            format!(
-                "{}",
-                ((self.gold_per_min_past_20.back().unwrap().0)
-                    - self.gold_per_min_past_20.front().unwrap().0)
-                    / 2.0
-            ),
-            format!("{}", self.gold_per_min_past_20.back().unwrap().0),
-        ]
-    }
+    // pub fn get_gold_x_bounds_labels(&self) -> [String; 3] {
+    //     [
+    //         format!("{}", self.gold_per_min_past_20.front().unwrap().0),
+    //         format!(
+    //             "{}",
+    //             ((self.gold_per_min_past_20.back().unwrap().0)
+    //                 - self.gold_per_min_past_20.front().unwrap().0)
+    //                 / 2.0
+    //         ),
+    //         format!("{}", self.gold_per_min_past_20.back().unwrap().0),
+    //     ]
+    // }
 
-    pub fn get_gold_y_bounds(&self) -> [f64; 2] {
-        [
-            self.gold_per_min_past_20.front().unwrap().1 * 0.8,
-            self.gold_per_min_past_20.back().unwrap().1 * 1.2,
-        ]
-    }
+    // pub fn get_gold_y_bounds(&self) -> [f64; 2] {
+    //     [
+    //         self.gold_per_min_past_20.front().unwrap().1 * 0.8,
+    //         self.gold_per_min_past_20.back().unwrap().1 * 1.2,
+    //     ]
+    // }
 
-    pub fn get_y_bounds_labels(&self) -> [String; 3] {
-        [
-            format!("{:.0}", self.gold_per_min_past_20.front().unwrap().1 * 0.8),
-            format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1),
-            format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1 * 1.2),
-        ]
-    }
+    // pub fn get_gold_y_bounds_labels(&self) -> [String; 3] {
+    //     [
+    //         format!("{:.0}", self.gold_per_min_past_20.front().unwrap().1 * 0.8),
+    //         format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1),
+    //         format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1 * 1.2),
+    //     ]
+    // }
 }
 
 pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     let client: Client = network::build_client().await;
 
     if app.use_sample_data {
-        info!("use_sample_data is true, using JSON files in resources directory");
+        warn!("use_sample_data is true, using JSON files in resources directory");
     }
 
     let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
@@ -178,10 +192,16 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             &app.gold_total,
         );
         app.gold_last_tick = active_player_data.current_gold;
-        app.on_tick(app.gold_total, game_data.game_time);
-        app.gold_per_min = format!("{:.1}", get_gold_per_min(app.gold_total, game_data.game_time));
-        info!("x_bounds: {:?}", app.get_gold_x_bounds());
-        info!("y_bounds: {:?}", app.get_gold_y_bounds());
+        app.gold_per_min = format!("{:.1}", get_per_min(app.gold_total, game_data.game_time));
+
+        for i in all_player_data.all_players.iter() {
+            if i.summoner_name == active_player_data.summoner_name {
+                app.cs_total = i.scores.creep_score as f64;
+                app.cs_per_min = format!("{:.1}", get_per_min(app.cs_total, game_data.game_time));
+            }
+        }
+
+        app.on_tick(game_data.game_time);
         info!("{:?}", &app.gold_per_min_arr);
 
         info!("Drawing UI");
@@ -190,14 +210,22 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             ui::ui(&mut f, size, &mut app);
         })?;
 
-        if crossterm::event::poll(Duration::from_millis(
-            env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
-        ))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::F(12) => return Ok(()),
-                    _ => {}
+        loop {
+            if crossterm::event::poll(Duration::from_millis(
+                env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
+            ))? {
+                if let Event::Key(key) = event::read()? {
+                    match key.code {
+                        KeyCode::F(12) => return Ok(()),
+                        _ => {
+                            break;
+                        }
+                    }
+                } else if let Event::Resize(_x, _y) = event::read()? {
+                    break;
                 }
+            } else {
+                break;
             }
         }
     }
@@ -232,10 +260,72 @@ fn get_total_gold_earned(current_gold: &f64, gold_last_tick: &f64, gold_total: &
     }
 }
 
-fn get_gold_per_min(gold_total: f64, game_time: f64) -> f64 {
+fn get_per_min(total: f64, game_time: f64) -> f64 {
     if game_time < 1.0 {
-        gold_total.floor() / (game_time / 60.0).ceil()
+        total.floor() / (game_time / 60.0).ceil()
     } else {
-        gold_total.floor() / (game_time / 60.0)
+        total.floor() / (game_time / 60.0)
+    }
+}
+
+pub struct Bounds {
+    pub gold: ([f64; 2], [f64; 2]),
+    pub gold_labels: ([String; 3], [String; 3]),
+    pub cs: ([f64; 2], [f64; 2]),
+    pub cs_labels: ([String; 3], [String; 3]),
+}
+
+impl Bounds {
+    pub fn new(app: &App) -> Bounds {
+        Bounds {
+            gold: (
+                [
+                    app.gold_per_min_past_20.front().unwrap().0,
+                    app.gold_per_min_past_20.back().unwrap().0,
+                ],
+                [
+                    app.gold_per_min_past_20.front().unwrap().1 * 0.8,
+                    app.gold_per_min_past_20.back().unwrap().1 * 1.2,
+                ],
+            ),
+            gold_labels: ([
+                format!("{}", app.gold_per_min_past_20.front().unwrap().0),
+                format!(
+                    "{}",
+                    ((app.gold_per_min_past_20.back().unwrap().0)
+                        - app.gold_per_min_past_20.front().unwrap().0)
+                        / 2.0
+                ),
+                format!("{}", app.gold_per_min_past_20.back().unwrap().0),
+            ], [
+                format!("{:.0}", app.gold_per_min_past_20.front().unwrap().1 * 0.8),
+                format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1),
+                format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1 * 1.2),
+            ]),
+            cs: (
+                [
+                    app.cs_per_min_past_20.front().unwrap().0,
+                    app.cs_per_min_past_20.back().unwrap().0,
+                ],
+                [
+                    app.cs_per_min_past_20.front().unwrap().1 * 0.8,
+                    app.cs_per_min_past_20.back().unwrap().1 * 1.2,
+                ],
+            ),
+            cs_labels: ([
+                format!("{}", app.cs_per_min_past_20.front().unwrap().0),
+                format!(
+                    "{}",
+                    ((app.cs_per_min_past_20.back().unwrap().0)
+                        - app.cs_per_min_past_20.front().unwrap().0)
+                        / 2.0
+                ),
+                format!("{}", app.cs_per_min_past_20.back().unwrap().0),
+            ], [
+                format!("{:.0}", app.cs_per_min_past_20.front().unwrap().1 * 0.8),
+                format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1),
+                format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1 * 1.2),
+            ]),
+        }
     }
 }

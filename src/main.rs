@@ -17,10 +17,10 @@ mod all_players;
 mod app;
 mod champions;
 mod dmg;
+mod game_data;
 mod network;
 mod ui;
 mod utils;
-mod game_data;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

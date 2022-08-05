@@ -9,7 +9,7 @@ use tui::{
 };
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerWidget};
 
-use crate::app;
+use crate::app::{self};
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     // Define a block ui element with a border and a title
@@ -118,13 +118,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .alignment(Alignment::Center);
     f.render_widget(paragraph, paragraph_stats_rects[2]);
 
-    let datasets = vec![Dataset::default()
+    let bounds = app::Bounds::new(&app);
+    let gold_per_min_dataset = vec![Dataset::default()
         .name("data1")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(Style::default().fg(Color::Magenta))
         .data(&app.gold_per_min_arr)];
-    let c = Chart::new(datasets)
+    let c_gold = Chart::new(gold_per_min_dataset)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -134,9 +135,9 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
             Axis::default()
                 .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(app.get_gold_x_bounds())
+                .bounds(bounds.gold.0)
                 .labels(
-                    app.get_gold_x_bounds_labels()
+                    bounds.gold_labels.0
                         .iter()
                         .cloned()
                         .map(Span::from)
@@ -147,16 +148,55 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
             Axis::default()
                 .title(Span::styled("Gold", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(app.get_gold_y_bounds())
+                .bounds(bounds.gold.1)
                 .labels(
-                    app.get_y_bounds_labels()
+                    bounds.gold_labels.1
                         .iter()
                         .cloned()
                         .map(Span::from)
                         .collect(),
                 ),
         );
-    f.render_widget(c, chart_stats_rects[0]);
+    f.render_widget(c_gold, chart_stats_rects[0]);
+    let cs_per_min_dataset = vec![Dataset::default()
+        .name("data1")
+        .marker(symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
+        .style(Style::default().fg(Color::Magenta))
+        .data(&app.cs_per_min_arr)];
+    let c_cs = Chart::new(cs_per_min_dataset)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("CS Per Minute"),
+        )
+        .x_axis(
+            Axis::default()
+                .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
+                .style(Style::default())
+                .bounds(bounds.cs.0)
+                .labels(
+                    bounds.cs_labels.0
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
+        )
+        .y_axis(
+            Axis::default()
+                .title(Span::styled("CS", Style::default().fg(Color::DarkGray)))
+                .style(Style::default())
+                .bounds(bounds.cs.1)
+                .labels(
+                    bounds.cs_labels.1
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
+        );
+    f.render_widget(c_cs, chart_stats_rects[1]);
 
     // Define formatting for log widget
     let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
