@@ -1,0 +1,787 @@
+[
+	{
+		"championName": "Orianna",
+		"isBot": false,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Ring",
+				"itemID": 1056,
+				"price": 400,
+				"rawDescription": "GeneratedTip_Item_1056_Description",
+				"rawDisplayName": "Item_1056_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 3,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Orianna",
+		"rawSkinName": "game_character_skin_displayname_Orianna_8",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Summon Aery",
+				"id": 8214,
+				"rawDescription": "perk_tooltip_SummonAery",
+				"rawDisplayName": "perk_displayname_SummonAery"
+			},
+			"primaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Inspiration",
+				"id": 8300,
+				"rawDescription": "perkstyle_tooltip_7203",
+				"rawDisplayName": "perkstyle_displayname_7203"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 0,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 8,
+		"skinName": "Victorious Orianna",
+		"summonerName": "Cudaa",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Flash",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+			}
+		},
+		"team": "ORDER"
+	},
+	{
+		"championName": "Ashe",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Long Sword",
+				"itemID": 1036,
+				"price": 350,
+				"rawDescription": "GeneratedTip_Item_1036_Description",
+				"rawDisplayName": "Item_1036_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 2,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Ashe",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Press the Attack",
+				"id": 8005,
+				"rawDescription": "perk_tooltip_PressTheAttack",
+				"rawDisplayName": "perk_displayname_PressTheAttack"
+			},
+			"primaryRuneTree": {
+				"displayName": "Precision",
+				"id": 8000,
+				"rawDescription": "perkstyle_tooltip_7201",
+				"rawDisplayName": "perkstyle_displayname_7201"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 0,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Ashe Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "ORDER"
+	},
+	{
+		"championName": "Sivir",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Shield",
+				"itemID": 1054,
+				"price": 450,
+				"rawDescription": "GeneratedTip_Item_1054_Description",
+				"rawDisplayName": "Item_1054_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": true,
+				"count": 1,
+				"displayName": "Health Potion",
+				"itemID": 2003,
+				"price": 50,
+				"rawDescription": "GeneratedTip_Item_2003_Description",
+				"rawDisplayName": "Item_2003_Name",
+				"slot": 1
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 3,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Sivir",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Press the Attack",
+				"id": 8005,
+				"rawDescription": "perk_tooltip_PressTheAttack",
+				"rawDisplayName": "perk_displayname_PressTheAttack"
+			},
+			"primaryRuneTree": {
+				"displayName": "Precision",
+				"id": 8000,
+				"rawDescription": "perkstyle_tooltip_7201",
+				"rawDisplayName": "perkstyle_displayname_7201"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 10,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Sivir Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "ORDER"
+	},
+	{
+		"championName": "Renekton",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Shield",
+				"itemID": 1054,
+				"price": 450,
+				"rawDescription": "GeneratedTip_Item_1054_Description",
+				"rawDisplayName": "Item_1054_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 4,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Renekton",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Grasp of the Undying",
+				"id": 8437,
+				"rawDescription": "perk_tooltip_GraspOfTheUndying",
+				"rawDisplayName": "perk_displayname_GraspOfTheUndying"
+			},
+			"primaryRuneTree": {
+				"displayName": "Resolve",
+				"id": 8400,
+				"rawDescription": "perkstyle_tooltip_7204",
+				"rawDisplayName": "perkstyle_displayname_7204"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 10,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Renekton Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Teleport",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerTeleport_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerTeleport_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Ghost",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+			}
+		},
+		"team": "ORDER"
+	},
+	{
+		"championName": "Veigar",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Ring",
+				"itemID": 1056,
+				"price": 400,
+				"rawDescription": "GeneratedTip_Item_1056_Description",
+				"rawDisplayName": "Item_1056_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 3,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Veigar",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Arcane Comet",
+				"id": 8229,
+				"rawDescription": "perk_tooltip_ArcaneComet",
+				"rawDisplayName": "perk_displayname_ArcaneComet"
+			},
+			"primaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Domination",
+				"id": 8100,
+				"rawDescription": "perkstyle_tooltip_7200",
+				"rawDisplayName": "perkstyle_displayname_7200"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 10,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Veigar Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "ORDER"
+	},
+	{
+		"championName": "Miss Fortune",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Blade",
+				"itemID": 1055,
+				"price": 450,
+				"rawDescription": "GeneratedTip_Item_1055_Description",
+				"rawDisplayName": "Item_1055_Name",
+				"slot": 0
+			},
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Boots",
+				"itemID": 1001,
+				"price": 300,
+				"rawDescription": "GeneratedTip_Item_1001_Description",
+				"rawDisplayName": "Item_1001_Name",
+				"slot": 1
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 2,
+		"position": "",
+		"rawChampionName": "game_character_displayname_MissFortune",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Press the Attack",
+				"id": 8005,
+				"rawDescription": "perk_tooltip_PressTheAttack",
+				"rawDisplayName": "perk_displayname_PressTheAttack"
+			},
+			"primaryRuneTree": {
+				"displayName": "Precision",
+				"id": 8000,
+				"rawDescription": "perkstyle_tooltip_7201",
+				"rawDisplayName": "perkstyle_displayname_7201"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 0,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Miss Fortune Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "CHAOS"
+	},
+	{
+		"championName": "Tristana",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Blade",
+				"itemID": 1055,
+				"price": 450,
+				"rawDescription": "GeneratedTip_Item_1055_Description",
+				"rawDisplayName": "Item_1055_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 3,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Tristana",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Press the Attack",
+				"id": 8005,
+				"rawDescription": "perk_tooltip_PressTheAttack",
+				"rawDisplayName": "perk_displayname_PressTheAttack"
+			},
+			"primaryRuneTree": {
+				"displayName": "Precision",
+				"id": 8000,
+				"rawDescription": "perkstyle_tooltip_7201",
+				"rawDisplayName": "perkstyle_displayname_7201"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 10,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Tristana Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "CHAOS"
+	},
+	{
+		"championName": "Lucian",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Blade",
+				"itemID": 1055,
+				"price": 450,
+				"rawDescription": "GeneratedTip_Item_1055_Description",
+				"rawDisplayName": "Item_1055_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 4,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Lucian",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Press the Attack",
+				"id": 8005,
+				"rawDescription": "perk_tooltip_PressTheAttack",
+				"rawDisplayName": "perk_displayname_PressTheAttack"
+			},
+			"primaryRuneTree": {
+				"displayName": "Precision",
+				"id": 8000,
+				"rawDescription": "perkstyle_tooltip_7201",
+				"rawDisplayName": "perkstyle_displayname_7201"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 10,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Lucian Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "CHAOS"
+	},
+	{
+		"championName": "Cho'Gath",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Doran's Ring",
+				"itemID": 1056,
+				"price": 400,
+				"rawDescription": "GeneratedTip_Item_1056_Description",
+				"rawDisplayName": "Item_1056_Name",
+				"slot": 0
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 3,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Chogath",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Arcane Comet",
+				"id": 8229,
+				"rawDescription": "perk_tooltip_ArcaneComet",
+				"rawDisplayName": "perk_displayname_ArcaneComet"
+			},
+			"primaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Domination",
+				"id": 8100,
+				"rawDescription": "perkstyle_tooltip_7200",
+				"rawDisplayName": "perkstyle_displayname_7200"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 0,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Cho'Gath Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ignite",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Exhaust",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+			}
+		},
+		"team": "CHAOS"
+	},
+	{
+		"championName": "Blitzcrank",
+		"isBot": true,
+		"isDead": false,
+		"items": [
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Steel Shoulderguards",
+				"itemID": 3854,
+				"price": 400,
+				"rawDescription": "GeneratedTip_Item_3854_Description",
+				"rawDisplayName": "Item_3854_Name",
+				"slot": 0
+			},
+			{
+				"canUse": false,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Cloth Armor",
+				"itemID": 1029,
+				"price": 300,
+				"rawDescription": "GeneratedTip_Item_1029_Description",
+				"rawDisplayName": "Item_1029_Name",
+				"slot": 1
+			},
+			{
+				"canUse": true,
+				"consumable": false,
+				"count": 1,
+				"displayName": "Stealth Ward",
+				"itemID": 3340,
+				"price": 0,
+				"rawDescription": "GeneratedTip_Item_3340_Description",
+				"rawDisplayName": "Item_3340_Name",
+				"slot": 6
+			}
+		],
+		"level": 2,
+		"position": "",
+		"rawChampionName": "game_character_displayname_Blitzcrank",
+		"respawnTimer": 0.0,
+		"runes": {
+			"keystone": {
+				"displayName": "Grasp of the Undying",
+				"id": 8437,
+				"rawDescription": "perk_tooltip_GraspOfTheUndying",
+				"rawDisplayName": "perk_displayname_GraspOfTheUndying"
+			},
+			"primaryRuneTree": {
+				"displayName": "Resolve",
+				"id": 8400,
+				"rawDescription": "perkstyle_tooltip_7204",
+				"rawDisplayName": "perkstyle_displayname_7204"
+			},
+			"secondaryRuneTree": {
+				"displayName": "Sorcery",
+				"id": 8200,
+				"rawDescription": "perkstyle_tooltip_7202",
+				"rawDisplayName": "perkstyle_displayname_7202"
+			}
+		},
+		"scores": {
+			"assists": 0,
+			"creepScore": 0,
+			"deaths": 0,
+			"kills": 0,
+			"wardScore": 0.0
+		},
+		"skinID": 0,
+		"summonerName": "Blitzcrank Bot",
+		"summonerSpells": {
+			"summonerSpellOne": {
+				"displayName": "Ghost",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+			},
+			"summonerSpellTwo": {
+				"displayName": "Teleport",
+				"rawDescription": "GeneratedTip_SummonerSpell_SummonerTeleport_Description",
+				"rawDisplayName": "GeneratedTip_SummonerSpell_SummonerTeleport_DisplayName"
+			}
+		},
+		"team": "CHAOS"
+	}
+]

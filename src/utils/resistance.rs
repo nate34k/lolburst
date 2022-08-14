@@ -44,7 +44,7 @@ impl<'a> Armor<'a> {
         // Set a Vec<f64> for opponant MR values
         let mut sar = Vec::new();
         for i in 0..ar.opponant_team.opponants.len() {
-            let champion_name = &ar.opponant_team.opponants[i].0;
+            let champion_name = &correct_name(&ar.opponant_team.opponants[i].0 as &str);
             let base_mr = ar.ddragon_champions["data"][champion_name]["stats"]["spellblock"]
                 .as_f64()
                 .unwrap();
@@ -84,7 +84,7 @@ impl<'a> MagicResist<'a> {
         // Set a Vec<f64> for opponant MR values
         let mut smr = Vec::new();
         for i in 0..mr.opponant_team.opponants.len() {
-            let champion_name = &mr.opponant_team.opponants[i].0;
+            let champion_name = &correct_name(&mr.opponant_team.opponants[i].0 as &str);
             let base_mr = mr.ddragon_champions["data"][champion_name]["stats"]["spellblock"]
                 .as_f64()
                 .unwrap();
@@ -97,5 +97,14 @@ impl<'a> MagicResist<'a> {
             smr.push(scaled_mr)
         }
         smr
+    }
+}
+
+fn correct_name(name: &str) -> String {
+    match name {
+        "ChoGath" => "Chogath".to_string(),
+        "KhaZix" => "Khazix".to_string(),
+        "KaiSa" => "Kaisa".to_string(),
+        _ => name.to_string(),
     }
 }

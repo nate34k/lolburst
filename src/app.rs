@@ -103,41 +103,6 @@ impl App {
             .enumerate()
             .for_each(|(i, c)| self.cs_per_min_arr[i] = (c.0, c.1));
     }
-
-    // pub fn get_gold_x_bounds(&self) -> [f64; 2] {
-    //     [
-    //         self.gold_per_min_past_20.front().unwrap().0,
-    //         self.gold_per_min_past_20.back().unwrap().0,
-    //     ]
-    // }
-
-    // pub fn get_gold_x_bounds_labels(&self) -> [String; 3] {
-    //     [
-    //         format!("{}", self.gold_per_min_past_20.front().unwrap().0),
-    //         format!(
-    //             "{}",
-    //             ((self.gold_per_min_past_20.back().unwrap().0)
-    //                 - self.gold_per_min_past_20.front().unwrap().0)
-    //                 / 2.0
-    //         ),
-    //         format!("{}", self.gold_per_min_past_20.back().unwrap().0),
-    //     ]
-    // }
-
-    // pub fn get_gold_y_bounds(&self) -> [f64; 2] {
-    //     [
-    //         self.gold_per_min_past_20.front().unwrap().1 * 0.8,
-    //         self.gold_per_min_past_20.back().unwrap().1 * 1.2,
-    //     ]
-    // }
-
-    // pub fn get_gold_y_bounds_labels(&self) -> [String; 3] {
-    //     [
-    //         format!("{:.0}", self.gold_per_min_past_20.front().unwrap().1 * 0.8),
-    //         format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1),
-    //         format!("{:.0}", self.gold_per_min_past_20.back().unwrap().1 * 1.2),
-    //     ]
-    // }
 }
 
 pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
@@ -160,17 +125,20 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     let champion = champions::match_champion("Orianna");
 
+    let mut cycle: usize = 0;
+
     // Applicaiton loop
     loop {
         let (active_player_data, all_player_data, game_data) =
-            deserializer::deserializer(&app, &client).await;
+            deserializer::deserializer(&app, &client, cycle).await;
+        cycle += 1;
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
         let resistance =
             resistance::Resistance::new(&active_player_data, &all_player_data, &ddragon_data);
 
-        // Other data we need to print
+        // TODO: Find a better place for this
         let ability_ranks = AbilityRanks::new(
             active_player_data.abilities.q.ability_level,
             active_player_data.abilities.w.ability_level,
@@ -202,7 +170,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
         }
 
         app.on_tick(game_data.game_time);
-        info!("{:?}", &app.gold_per_min_arr);
 
         info!("Drawing UI");
         terminal.draw(|mut f| {
@@ -284,48 +251,54 @@ impl Bounds {
                     app.gold_per_min_past_20.back().unwrap().0,
                 ],
                 [
-                    app.gold_per_min_past_20.front().unwrap().1 * 0.8,
-                    app.gold_per_min_past_20.back().unwrap().1 * 1.2,
+                    app.gold_per_min_past_20.back().unwrap().1 * 0.6,
+                    app.gold_per_min_past_20.back().unwrap().1 * 1.4,
                 ],
             ),
-            gold_labels: ([
-                format!("{}", app.gold_per_min_past_20.front().unwrap().0),
-                format!(
-                    "{}",
-                    ((app.gold_per_min_past_20.back().unwrap().0)
-                        - app.gold_per_min_past_20.front().unwrap().0)
-                        / 2.0
-                ),
-                format!("{}", app.gold_per_min_past_20.back().unwrap().0),
-            ], [
-                format!("{:.0}", app.gold_per_min_past_20.front().unwrap().1 * 0.8),
-                format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1),
-                format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1 * 1.2),
-            ]),
+            gold_labels: (
+                [
+                    format!("{}", app.gold_per_min_past_20.front().unwrap().0),
+                    format!(
+                        "{}",
+                        ((app.gold_per_min_past_20.back().unwrap().0)
+                            - app.gold_per_min_past_20.front().unwrap().0)
+                            / 2.0
+                    ),
+                    format!("{}", app.gold_per_min_past_20.back().unwrap().0),
+                ],
+                [
+                    format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1 * 0.6),
+                    format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1),
+                    format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1 * 1.4),
+                ],
+            ),
             cs: (
                 [
                     app.cs_per_min_past_20.front().unwrap().0,
                     app.cs_per_min_past_20.back().unwrap().0,
                 ],
                 [
-                    app.cs_per_min_past_20.front().unwrap().1 * 0.8,
-                    app.cs_per_min_past_20.back().unwrap().1 * 1.2,
+                    2.0,
+                    10.0,
                 ],
             ),
-            cs_labels: ([
-                format!("{}", app.cs_per_min_past_20.front().unwrap().0),
-                format!(
-                    "{}",
-                    ((app.cs_per_min_past_20.back().unwrap().0)
-                        - app.cs_per_min_past_20.front().unwrap().0)
-                        / 2.0
-                ),
-                format!("{}", app.cs_per_min_past_20.back().unwrap().0),
-            ], [
-                format!("{:.0}", app.cs_per_min_past_20.front().unwrap().1 * 0.8),
-                format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1),
-                format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1 * 1.2),
-            ]),
+            cs_labels: (
+                [
+                    format!("{}", app.cs_per_min_past_20.front().unwrap().0),
+                    format!(
+                        "{}",
+                        ((app.cs_per_min_past_20.back().unwrap().0)
+                            - app.cs_per_min_past_20.front().unwrap().0)
+                            / 2.0
+                    ),
+                    format!("{}", app.cs_per_min_past_20.back().unwrap().0),
+                ],
+                [
+                    format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1 * 0.6),
+                    format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1),
+                    format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1 * 1.4),
+                ],
+            ),
         }
     }
 }

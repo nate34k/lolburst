@@ -5,24 +5,29 @@ use std::fs;
 pub async fn deserializer(
     app: &App,
     client: &Client,
+    cycle: usize,
 ) -> (active_player::Root, all_players::Root, game_data::Root) {
     let active_player_data: active_player::Root;
     let all_player_data: all_players::Root;
     let game_data: game_data::Root;
 
     if app.use_sample_data {
+        let p = String::from(&app.active_player_json_sample);
         active_player_data = serde_json::from_str(
-            &fs::read_to_string(&app.active_player_json_sample)
+            &fs::read_to_string(p + &format!("_{}.json", cycle))
                 .expect("Failed to read string from file"),
         )
         .expect("Failed to deserialize string to active_player::Root");
-        all_player_data = serde_json::from_str(
-            &fs::read_to_string(&app.all_players_json_sample)
-                .expect("Failed to read string from file"),
-        )
-        .expect("Failed to deserialize string into all_players::Root");
+        let p = String::from(&app.all_players_json_sample);
+        let all_players_jsonified = String::from("{ \"allPlayers\": ")
+            + &fs::read_to_string(p + &format!("_{}.json", cycle))
+                .expect("Failed to read string from file")
+            + "}";
+        all_player_data = serde_json::from_str(&all_players_jsonified)
+            .expect("Failed to deserialize string into all_players::Root");
+        let p = String::from(&app.game_stats_json_sample);
         game_data = serde_json::from_str(
-            &fs::read_to_string(&app.game_stats_json_sample)
+            &fs::read_to_string(p + &format!("_{}.json", cycle))
                 .expect("Failed to read string from file"),
         )
         .expect("Failed to deserialize string into game_data::Root");

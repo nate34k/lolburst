@@ -1,0 +1,147 @@
+{
+	"abilities": {
+		"E": {
+			"abilityLevel": 1,
+			"displayName": "Command: Protect",
+			"id": "OrianaRedactCommand",
+			"rawDescription": "GeneratedTip_Spell_OrianaRedactCommand_Description",
+			"rawDisplayName": "GeneratedTip_Spell_OrianaRedactCommand_DisplayName"
+		},
+		"Passive": {
+			"displayName": "Clockwork Windup",
+			"id": "OriannaP",
+			"rawDescription": "GeneratedTip_Passive_OriannaP_Description",
+			"rawDisplayName": "GeneratedTip_Passive_OriannaP_DisplayName"
+		},
+		"Q": {
+			"abilityLevel": 3,
+			"displayName": "Command: Attack",
+			"id": "OrianaIzunaCommand",
+			"rawDescription": "GeneratedTip_Spell_OrianaIzunaCommand_Description",
+			"rawDisplayName": "GeneratedTip_Spell_OrianaIzunaCommand_DisplayName"
+		},
+		"R": {
+			"abilityLevel": 0,
+			"displayName": "Command: Shockwave",
+			"id": "OrianaDetonateCommand",
+			"rawDescription": "GeneratedTip_Spell_OrianaDetonateCommand_Description",
+			"rawDisplayName": "GeneratedTip_Spell_OrianaDetonateCommand_DisplayName"
+		},
+		"W": {
+			"abilityLevel": 1,
+			"displayName": "Command: Dissonance",
+			"id": "OrianaDissonanceCommand",
+			"rawDescription": "GeneratedTip_Spell_OrianaDissonanceCommand_Description",
+			"rawDisplayName": "GeneratedTip_Spell_OrianaDissonanceCommand_DisplayName"
+		}
+	},
+	"championStats": {
+		"abilityHaste": 5.0,
+		"abilityPower": 53.0,
+		"armor": 35.97800064086914,
+		"armorPenetrationFlat": 0.0,
+		"armorPenetrationPercent": 1.0,
+		"attackDamage": 48.034000396728519,
+		"attackRange": 525.0,
+		"attackSpeed": 0.7291626930236816,
+		"bonusArmorPenetrationPercent": 1.0,
+		"bonusMagicPenetrationPercent": 1.0,
+		"critChance": 0.0,
+		"critDamage": 175.0,
+		"currentHealth": 795.8441772460938,
+		"healShieldPower": 0.0,
+		"healthRegenRate": 1.73989999294281,
+		"lifeSteal": 0.0,
+		"magicLethality": 0.0,
+		"magicPenetrationFlat": 0.0,
+		"magicPenetrationPercent": 1.0,
+		"magicResist": 44.016998291015628,
+		"maxHealth": 994.4500122070313,
+		"moveSpeed": 325.0,
+		"omnivamp": 0.0,
+		"physicalLethality": 0.0,
+		"physicalVamp": 0.0,
+		"resourceMax": 1040.25,
+		"resourceRegenRate": 2.094399929046631,
+		"resourceType": "MANA",
+		"resourceValue": 495.2655334472656,
+		"spellVamp": 0.0,
+		"tenacity": 0.0
+	},
+	"currentGold": 623.4213256835938,
+	"fullRunes": {
+		"generalRunes": [
+			{
+				"displayName": "Summon Aery",
+				"id": 8214,
+				"rawDescription": "perk_tooltip_SummonAery",
+				"rawDisplayName": "perk_displayname_SummonAery"
+			},
+			{
+				"displayName": "Manaflow Band",
+				"id": 8226,
+				"rawDescription": "perk_tooltip_8226",
+				"rawDisplayName": "perk_displayname_8226"
+			},
+			{
+				"displayName": "Transcendence",
+				"id": 8210,
+				"rawDescription": "perk_tooltip_Transcendence",
+				"rawDisplayName": "perk_displayname_Transcendence"
+			},
+			{
+				"displayName": "Scorch",
+				"id": 8237,
+				"rawDescription": "perk_tooltip_Scorch",
+				"rawDisplayName": "perk_displayname_Scorch"
+			},
+			{
+				"displayName": "Biscuit Delivery",
+				"id": 8345,
+				"rawDescription": "perk_tooltip_BiscuitDelivery",
+				"rawDisplayName": "perk_displayname_BiscuitDelivery"
+			},
+			{
+				"displayName": "Time Warp Tonic",
+				"id": 8352,
+				"rawDescription": "perk_tooltip_TimeWarpTonic",
+				"rawDisplayName": "perk_displayname_TimeWarpTonic"
+			}
+		],
+		"keystone": {
+			"displayName": "Summon Aery",
+			"id": 8214,
+			"rawDescription": "perk_tooltip_SummonAery",
+			"rawDisplayName": "perk_displayname_SummonAery"
+		},
+		"primaryRuneTree": {
+			"displayName": "Sorcery",
+			"id": 8200,
+			"rawDescription": "perkstyle_tooltip_7202",
+			"rawDisplayName": "perkstyle_displayname_7202"
+		},
+		"secondaryRuneTree": {
+			"displayName": "Inspiration",
+			"id": 8300,
+			"rawDescription": "perkstyle_tooltip_7203",
+			"rawDisplayName": "perkstyle_displayname_7203"
+		},
+		"statRunes": [
+			{
+				"id": 5008,
+				"rawDescription": "perk_tooltip_StatModAdaptive"
+			},
+			{
+				"id": 5008,
+				"rawDescription": "perk_tooltip_StatModAdaptive"
+			},
+			{
+				"id": 5003,
+				"rawDescription": "perk_tooltip_StatModMagicResist"
+			}
+		]
+	},
+	"level": 5,
+	"summonerName": "Cudaa",
+	"teamRelativeColors": true
+}

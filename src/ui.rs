@@ -137,7 +137,9 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
                 .style(Style::default())
                 .bounds(bounds.gold.0)
                 .labels(
-                    bounds.gold_labels.0
+                    bounds
+                        .gold_labels
+                        .0
                         .iter()
                         .cloned()
                         .map(Span::from)
@@ -150,7 +152,9 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
                 .style(Style::default())
                 .bounds(bounds.gold.1)
                 .labels(
-                    bounds.gold_labels.1
+                    bounds
+                        .gold_labels
+                        .1
                         .iter()
                         .cloned()
                         .map(Span::from)
@@ -175,26 +179,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
                 .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.cs.0)
-                .labels(
-                    bounds.cs_labels.0
-                        .iter()
-                        .cloned()
-                        .map(Span::from)
-                        .collect(),
-                ),
+                .labels(bounds.cs_labels.0.iter().cloned().map(Span::from).collect()),
         )
         .y_axis(
             Axis::default()
                 .title(Span::styled("CS", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.cs.1)
-                .labels(
-                    bounds.cs_labels.1
-                        .iter()
-                        .cloned()
-                        .map(Span::from)
-                        .collect(),
-                ),
+                .labels(bounds.cs_labels.1.iter().cloned().map(Span::from).collect()),
         );
     f.render_widget(c_cs, chart_stats_rects[1]);
 
