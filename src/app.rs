@@ -131,6 +131,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
     loop {
         let (active_player_data, all_player_data, game_data) =
             deserializer::deserializer(&app, &client, cycle).await;
+        
         cycle += 1;
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
@@ -237,9 +238,9 @@ fn get_per_min(total: f64, game_time: f64) -> f64 {
 
 pub struct Bounds {
     pub gold: ([f64; 2], [f64; 2]),
-    pub gold_labels: ([String; 3], [String; 3]),
+    pub gold_labels: ([String; 3], [String; 5]),
     pub cs: ([f64; 2], [f64; 2]),
-    pub cs_labels: ([String; 3], [String; 3]),
+    pub cs_labels: ([String; 3], [String; 5]),
 }
 
 impl Bounds {
@@ -250,26 +251,20 @@ impl Bounds {
                     app.gold_per_min_past_20.front().unwrap().0,
                     app.gold_per_min_past_20.back().unwrap().0,
                 ],
-                [
-                    app.gold_per_min_past_20.back().unwrap().1 * 0.6,
-                    app.gold_per_min_past_20.back().unwrap().1 * 1.4,
-                ],
+                [ 0.0, 600.0],
             ),
             gold_labels: (
                 [
-                    format!("{}", app.gold_per_min_past_20.front().unwrap().0),
-                    format!(
-                        "{}",
-                        ((app.gold_per_min_past_20.back().unwrap().0)
-                            - app.gold_per_min_past_20.front().unwrap().0)
-                            / 2.0
-                    ),
-                    format!("{}", app.gold_per_min_past_20.back().unwrap().0),
+                    "-5:00".to_string(),
+                    "-2:30".to_string(),
+                    "0:00".to_string(),
                 ],
                 [
-                    format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1 * 0.6),
-                    format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1),
-                    format!("{:.0}", app.gold_per_min_past_20.back().unwrap().1 * 1.4),
+                    0.0.to_string(),
+                    150.0.to_string(),
+                    300.0.to_string(),
+                    450.0.to_string(),
+                    600.0.to_string(),
                 ],
             ),
             cs: (
@@ -278,25 +273,22 @@ impl Bounds {
                     app.cs_per_min_past_20.back().unwrap().0,
                 ],
                 [
-                    2.0,
-                    10.0,
+                    0.0,
+                    12.0,
                 ],
             ),
             cs_labels: (
                 [
-                    format!("{}", app.cs_per_min_past_20.front().unwrap().0),
-                    format!(
-                        "{}",
-                        ((app.cs_per_min_past_20.back().unwrap().0)
-                            - app.cs_per_min_past_20.front().unwrap().0)
-                            / 2.0
-                    ),
-                    format!("{}", app.cs_per_min_past_20.back().unwrap().0),
+                    "-5:00".to_string(),
+                    "-2:30".to_string(),
+                    "0:00".to_string(),
                 ],
                 [
-                    format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1 * 0.6),
-                    format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1),
-                    format!("{:.0}", app.cs_per_min_past_20.back().unwrap().1 * 1.4),
+                    0.0.to_string(),
+                    3.0.to_string(),
+                    6.0.to_string(),
+                    9.0.to_string(),
+                    12.0.to_string(),
                 ],
             ),
         }

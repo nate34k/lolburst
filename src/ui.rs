@@ -3,7 +3,7 @@ use tui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
-    text::Span,
+    text::{Span},
     widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table},
     Frame,
 };
@@ -102,16 +102,30 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
             ))
     };
 
+    let style: Style;
+    
+    match app.gold_per_min_past_20.back().unwrap().1 as i64 {
+        0..=99 => style = Style::default().fg(Color::DarkGray),
+        100..=199 => style = Style::default().fg(Color::Gray),
+        200..=299 => style = Style::default().fg(Color::Yellow),
+        300..=399 => style = Style::default().fg(Color::LightCyan),
+        400..=499 => style = Style::default().fg(Color::LightBlue),
+        509..=599 => style = Style::default().fg(Color::LightRed),
+        _ => style = Style::default().fg(Color::LightGreen),
+    }
+
     let paragraph = Paragraph::new(app.gold_per_min.clone())
-        .style(Style::default().fg(Color::White))
+        .style(style)
         .block(create_block("Gold Per Minute"))
         .alignment(Alignment::Center);
     f.render_widget(paragraph, paragraph_stats_rects[0]);
+
     let paragraph = Paragraph::new(app.cs_per_min.clone())
         .style(Style::default().fg(Color::White))
         .block(create_block("CS Per Minute"))
         .alignment(Alignment::Center);
     f.render_widget(paragraph, paragraph_stats_rects[1]);
+
     let paragraph = Paragraph::new(app.vs_per_min.clone())
         .style(Style::default().fg(Color::White))
         .block(create_block("VS Per Minute"))
@@ -123,7 +137,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .name("data1")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
-        .style(Style::default().fg(Color::Magenta))
+        .style(style)
         .data(&app.gold_per_min_arr)];
     let c_gold = Chart::new(gold_per_min_dataset)
         .block(
@@ -162,11 +176,21 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
                 ),
         );
     f.render_widget(c_gold, chart_stats_rects[0]);
+    let line_style: Style;
+    match app.cs_per_min_past_20.back().unwrap().1 as i64 {
+        0..=3 => line_style = Style::default().fg(Color::DarkGray),
+        4..=5 => line_style = Style::default().fg(Color::Gray),
+        6..=7 => line_style = Style::default().fg(Color::Yellow),
+        8..=8 => line_style = Style::default().fg(Color::LightCyan),
+        9..=10 => line_style = Style::default().fg(Color::LightBlue),
+        11..=12 => line_style = Style::default().fg(Color::LightRed),
+        _ => line_style = Style::default().fg(Color::LightGreen),
+    }
     let cs_per_min_dataset = vec![Dataset::default()
         .name("data1")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
-        .style(Style::default().fg(Color::Magenta))
+        .style(line_style)
         .data(&app.cs_per_min_arr)];
     let c_cs = Chart::new(cs_per_min_dataset)
         .block(
