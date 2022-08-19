@@ -131,7 +131,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
     loop {
         let (active_player_data, all_player_data, game_data) =
             deserializer::deserializer(&app, &client, cycle).await;
-        
+
         cycle += 1;
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
@@ -251,14 +251,10 @@ impl Bounds {
                     app.gold_per_min_past_20.front().unwrap().0,
                     app.gold_per_min_past_20.back().unwrap().0,
                 ],
-                [ 0.0, 600.0],
+                [0.0, 600.0],
             ),
             gold_labels: (
-                [
-                    "-5:00".to_string(),
-                    "-2:30".to_string(),
-                    "0:00".to_string(),
-                ],
+                ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
                 [
                     0.0.to_string(),
                     150.0.to_string(),
@@ -272,17 +268,10 @@ impl Bounds {
                     app.cs_per_min_past_20.front().unwrap().0,
                     app.cs_per_min_past_20.back().unwrap().0,
                 ],
-                [
-                    0.0,
-                    12.0,
-                ],
+                [0.0, 12.0],
             ),
             cs_labels: (
-                [
-                    "-5:00".to_string(),
-                    "-2:30".to_string(),
-                    "0:00".to_string(),
-                ],
+                ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
                 [
                     0.0.to_string(),
                     3.0.to_string(),

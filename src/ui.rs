@@ -3,7 +3,7 @@ use tui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
-    text::{Span},
+    text::Span,
     widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table},
     Frame,
 };
@@ -81,7 +81,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         Row::new(cells).height(height as u16).bottom_margin(1)
     });
 
-    // Define and render the burst table
+    // Define the burst table
     let t = Table::new(burst_rows)
         .header(burst_header)
         .block(Block::default().borders(Borders::ALL).title("burst"))
@@ -90,61 +90,44 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
             Constraint::Length(5),
             Constraint::Length(5),
         ]);
+
+    // Render the burst table
     f.render_stateful_widget(t, data_rects[0], &mut app.burst_table_state);
 
-    let create_block = |title| {
+    // Helper closure for creating a Block for a paragraph
+    let create_block = |title, style| {
         Block::default()
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::White))
+            .style(style)
             .title(Span::styled(
                 title,
                 Style::default().add_modifier(Modifier::BOLD),
             ))
     };
 
-    let style: Style;
-    
-    match app.gold_per_min_past_20.back().unwrap().1 as i64 {
-        0..=99 => style = Style::default().fg(Color::DarkGray),
-        100..=199 => style = Style::default().fg(Color::Gray),
-        200..=299 => style = Style::default().fg(Color::Yellow),
-        300..=399 => style = Style::default().fg(Color::LightCyan),
-        400..=499 => style = Style::default().fg(Color::LightBlue),
-        509..=599 => style = Style::default().fg(Color::LightRed),
-        _ => style = Style::default().fg(Color::LightGreen),
-    }
-
-    let paragraph = Paragraph::new(app.gold_per_min.clone())
-        .style(style)
-        .block(create_block("Gold Per Minute"))
-        .alignment(Alignment::Center);
-    f.render_widget(paragraph, paragraph_stats_rects[0]);
-
-    let paragraph = Paragraph::new(app.cs_per_min.clone())
-        .style(Style::default().fg(Color::White))
-        .block(create_block("CS Per Minute"))
-        .alignment(Alignment::Center);
-    f.render_widget(paragraph, paragraph_stats_rects[1]);
-
-    let paragraph = Paragraph::new(app.vs_per_min.clone())
-        .style(Style::default().fg(Color::White))
-        .block(create_block("VS Per Minute"))
-        .alignment(Alignment::Center);
-    f.render_widget(paragraph, paragraph_stats_rects[2]);
-
+    // Set bounds for charts to new Bounds
     let bounds = app::Bounds::new(&app);
+
+    // Define a layout for "gold per minute"
+    // Set style to correct color for "gold per minute"
+    let style: Style =
+        match_paragraph_style("gold", app.gold_per_min_past_20.back().unwrap().1 as i64);
+    // Define paragraph for "gold per minute"
+    let paragraph = Paragraph::new(&*app.gold_per_min)
+        .style(style)
+        .block(create_block("Gold Per Minute", style))
+        .alignment(Alignment::Center);
+    // Render paragraph for "gold per minute"
+    f.render_widget(paragraph, paragraph_stats_rects[0]);
+    // Build dataset for "gold per minute"
     let gold_per_min_dataset = vec![Dataset::default()
         .name("data1")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
         .data(&app.gold_per_min_arr)];
+    // Build chart for "gold per minute"
     let c_gold = Chart::new(gold_per_min_dataset)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Gold Per Minute"),
-        )
         .x_axis(
             Axis::default()
                 .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
@@ -174,24 +157,32 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
                         .map(Span::from)
                         .collect(),
                 ),
-        );
+        )
+        .block(create_block("Gold Per Minute", Style::default()));
+
+    // Render chart for "gold per minute"
     f.render_widget(c_gold, chart_stats_rects[0]);
-    let line_style: Style;
-    match app.cs_per_min_past_20.back().unwrap().1 as i64 {
-        0..=3 => line_style = Style::default().fg(Color::DarkGray),
-        4..=5 => line_style = Style::default().fg(Color::Gray),
-        6..=7 => line_style = Style::default().fg(Color::Yellow),
-        8..=8 => line_style = Style::default().fg(Color::LightCyan),
-        9..=10 => line_style = Style::default().fg(Color::LightBlue),
-        11..=12 => line_style = Style::default().fg(Color::LightRed),
-        _ => line_style = Style::default().fg(Color::LightGreen),
-    }
+
+    // Define a layout for "cs per minute"
+    // Set style to correct color for "cs per minute"
+    let style: Style = match_paragraph_style("cs", app.cs_per_min_past_20.back().unwrap().1 as i64);
+
+    // Define paragraph for "cs per minute"
+    let paragraph = Paragraph::new(app.cs_per_min.clone())
+        .style(style)
+        .block(create_block("CS Per Minute", style))
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, paragraph_stats_rects[1]);
+
+    // Build dataset for "cs per minute"
     let cs_per_min_dataset = vec![Dataset::default()
         .name("data1")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
-        .style(line_style)
+        .style(style)
         .data(&app.cs_per_min_arr)];
+
+    // Build chart for "cs per minute"
     let c_cs = Chart::new(cs_per_min_dataset)
         .block(
             Block::default()
@@ -212,7 +203,15 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
                 .bounds(bounds.cs.1)
                 .labels(bounds.cs_labels.1.iter().cloned().map(Span::from).collect()),
         );
+
+    // Render chart for "cs per minute"
     f.render_widget(c_cs, chart_stats_rects[1]);
+
+    let paragraph = Paragraph::new(app.vs_per_min.clone())
+        .style(Style::default().fg(Color::White))
+        .block(create_block("VS Per Minute", Style::default()))
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, paragraph_stats_rects[2]);
 
     // Define formatting for log widget
     let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
@@ -236,4 +235,69 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Render the log widget
     f.render_widget(tui_w, rects[1]);
+}
+
+// Function to match the stat and return the appropriate style
+fn match_paragraph_style(stat: &str, n: i64) -> Style {
+    let color = RColor::new();
+    match stat {
+        "gold" => match n {
+            0..=199 => Style::default().fg(color.iron),
+            200..=249 => Style::default().fg(color.bronze),
+            250..=299 => Style::default().fg(color.silver),
+            300..=349 => Style::default().fg(color.gold),
+            350..=399 => Style::default().fg(color.platinum),
+            400..=449 => Style::default().fg(color.diamond),
+            450..=499 => Style::default().fg(color.master),
+            500..=549 => Style::default().fg(color.grandmaster),
+            550..=650 => Style::default()
+                .fg(color.challenger)
+                .add_modifier(Modifier::SLOW_BLINK),
+            _ => Style::default(),
+        },
+        "cs" => match n {
+            0..=3 => Style::default().fg(color.iron),
+            4 => Style::default().fg(color.bronze),
+            5 => Style::default().fg(color.silver),
+            6 => Style::default().fg(color.gold),
+            7 => Style::default().fg(color.platinum),
+            8..=9 => Style::default().fg(color.diamond),
+            10 => Style::default().fg(color.master),
+            11 => Style::default().fg(color.grandmaster),
+            12 => Style::default()
+                .fg(color.challenger)
+                .add_modifier(Modifier::SLOW_BLINK),
+            _ => Style::default(),
+        },
+        _ => Style::default(),
+    }
+}
+
+// Struct for holding default values for the color of the tiers
+struct RColor {
+    iron: tui::style::Color,
+    bronze: tui::style::Color,
+    silver: tui::style::Color,
+    gold: tui::style::Color,
+    platinum: tui::style::Color,
+    diamond: tui::style::Color,
+    master: tui::style::Color,
+    grandmaster: tui::style::Color,
+    challenger: tui::style::Color,
+}
+
+impl RColor {
+    fn new() -> RColor {
+        RColor {
+            iron: Color::Rgb(81, 68, 68),
+            bronze: Color::Rgb(127, 84, 20),
+            silver: Color::Rgb(240, 240, 240),
+            gold: Color::Rgb(228, 228, 126),
+            platinum: Color::Rgb(123, 228, 172),
+            diamond: Color::Rgb(81, 245, 250),
+            master: Color::Rgb(159, 53, 220),
+            grandmaster: Color::Rgb(255, 59, 20),
+            challenger: Color::Rgb(102, 204, 255),
+        }
+    }
 }
