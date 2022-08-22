@@ -1,9 +1,14 @@
-use std::{collections::VecDeque, env, io, time::Duration};
+use std::{collections::VecDeque, env, io, thread, time::Duration};
 
+use crossbeam::{
+    channel::{unbounded, Receiver},
+    select,
+};
 use crossterm::event::{self, Event, KeyCode};
 use reqwest::Client;
 use serde_json::Value;
 use tui::{backend::Backend, widgets::TableState, Terminal};
+use tui_logger::{TuiWidgetEvent, TuiWidgetState};
 
 use crate::{
     active_player::{self, AbilityRanks},
@@ -15,6 +20,9 @@ use crate::{
 pub struct App {
     pub burst_table_state: TableState,
     pub burst_table_items: Vec<Vec<String>>,
+    pub logger_state: TuiWidgetState,
+    pub draw_logger: bool,
+    pub logger_scroll_mode: bool,
     pub gold_last_tick: f64,
     pub gold_total: f64,
     pub gold_per_min: String,
@@ -24,7 +32,10 @@ pub struct App {
     pub cs_per_min: String,
     pub cs_per_min_past_20: VecDeque<(f64, f64)>,
     pub cs_per_min_arr: [(f64, f64); 20],
+    pub vs_total: f64,
     pub vs_per_min: String,
+    pub vs_per_min_past_20: VecDeque<(f64, f64)>,
+    pub vs_per_min_arr: [(f64, f64); 20],
     pub use_sample_data: bool,
     pub active_player_json_url: String,
     pub active_player_json_sample: String,
@@ -65,6 +76,9 @@ impl App {
                     "Row53".to_string(),
                 ],
             ],
+            logger_state: TuiWidgetState::default(),
+            draw_logger: false,
+            logger_scroll_mode: false,
             gold_last_tick: 0.0,
             gold_total: 0.0,
             gold_per_min: "42".to_string(),
@@ -74,7 +88,10 @@ impl App {
             cs_per_min: "42".to_string(),
             cs_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
             cs_per_min_arr: [(0.0, 0.0); 20],
+            vs_total: 0.0,
             vs_per_min: "42".to_string(),
+            vs_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
+            vs_per_min_arr: [(0.0, 0.0); 20],
             use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
             active_player_json_url: env::var("ACTIVE_PLAYER_URL").unwrap(),
             active_player_json_sample: env::var("ACTIVE_PLAYER_JSON_SAMPLE").unwrap(),
@@ -102,6 +119,14 @@ impl App {
             .clone()
             .enumerate()
             .for_each(|(i, c)| self.cs_per_min_arr[i] = (c.0, c.1));
+        self.vs_per_min_past_20.pop_front();
+        self.vs_per_min_past_20
+            .push_back((game_time.round(), get_per_min(self.vs_total, game_time)));
+        self.vs_per_min_past_20
+            .iter()
+            .clone()
+            .enumerate()
+            .for_each(|(i, v)| self.vs_per_min_arr[i] = (v.0, v.1));
     }
 }
 
@@ -125,14 +150,30 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     let champion = champions::match_champion("Orianna");
 
+    // opt_state.transition(&TuiWidgetEvent::UpKey);
+
     let mut cycle: usize = 0;
+
+    let ui_events_rx = setup_ui_events();
+    let tick = tick();
 
     // Applicaiton loop
     loop {
         let (active_player_data, all_player_data, game_data) =
             deserializer::deserializer(&app, &client, cycle).await;
 
-        cycle += 1;
+        if app.use_sample_data {
+            cycle += 1;
+
+            if cycle
+                == std::fs::read_dir(&app.active_player_json_sample)
+                    .unwrap()
+                    .count()
+            {
+                cycle = 0;
+                app.gold_total = 0.0;
+            }
+        }
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
@@ -167,40 +208,136 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             if i.summoner_name == active_player_data.summoner_name {
                 app.cs_total = i.scores.creep_score as f64;
                 app.cs_per_min = format!("{:.1}", get_per_min(app.cs_total, game_data.game_time));
+                app.vs_total = i.scores.ward_score as f64;
+                app.vs_per_min = format!("{:.1}", get_per_min(app.vs_total, game_data.game_time));
             }
         }
 
         app.on_tick(game_data.game_time);
 
-        info!("Drawing UI");
-        terminal.draw(|mut f| {
-            let size = f.size();
-            ui::ui(&mut f, size, &mut app);
-        })?;
+        draw(terminal, &mut app);
 
+        // Handle UI events
         loop {
-            if crossterm::event::poll(Duration::from_millis(
-                env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
-            ))? {
-                if let Event::Key(key) = event::read()? {
-                    match key.code {
-                        KeyCode::F(12) => return Ok(()),
-                        _ => {
-                            break;
+            select! {
+                recv(ui_events_rx) -> event => {
+                    match event.unwrap() {
+                        Event::Key(key_event) => {
+                            match key_event.code {
+                                KeyCode::Char('q') => {
+                                    return Ok(());
+                                }
+                                KeyCode::Char('s') => {
+                                    break;
+                                }
+                                KeyCode::Char('l') => {
+                                    info!("Toggling logger on/off");
+                                    app.draw_logger = !app.draw_logger;
+                                }
+                                KeyCode::PageUp => {
+                                    app.logger_state.transition(&TuiWidgetEvent::PrevPageKey);
+                                    app.logger_scroll_mode = true;
+                                }
+                                KeyCode::PageDown => {
+                                    app.logger_state.transition(&TuiWidgetEvent::NextPageKey);
+                                    app.logger_scroll_mode = true;
+                                }
+                                KeyCode::Up => {
+                                    app.logger_state.transition(&TuiWidgetEvent::UpKey);
+                                }
+                                KeyCode::Down => {
+                                    app.logger_state.transition(&TuiWidgetEvent::DownKey);
+                                }
+                                KeyCode::Left => {
+                                    app.logger_state.transition(&TuiWidgetEvent::LeftKey);
+                                }
+                                KeyCode::Right => {
+                                    app.logger_state.transition(&TuiWidgetEvent::RightKey);
+                                }
+                                KeyCode::Esc => {
+                                    app.logger_state.transition(&TuiWidgetEvent::EscapeKey);
+                                    app.logger_scroll_mode = false;
+                                }
+                                KeyCode::Char(' ') => {
+                                    app.logger_state.transition(&TuiWidgetEvent::SpaceKey);
+                                }
+                                KeyCode::Char('+') => {
+                                    app.logger_state.transition(&TuiWidgetEvent::PlusKey);
+                                }
+                                KeyCode::Char('-') => {
+                                    app.logger_state.transition(&TuiWidgetEvent::MinusKey);
+                                }
+                                KeyCode::Char('h') => {
+                                    app.logger_state.transition(&TuiWidgetEvent::HideKey);
+                                }
+                                KeyCode::Char('f') => {
+                                    app.logger_state.transition(&TuiWidgetEvent::FocusKey);
+                                }
+                                _ => {}
+                            }
+                            debug!("{:?}", key_event);
+                            draw(terminal, &mut app);
                         }
+                        Event::Resize(_x, _y) => {
+                            draw(terminal, &mut app);
+                        }
+                        _ => {}
                     }
-                } else if let Event::Resize(_x, _y) = event::read()? {
-                    break;
                 }
-            } else {
-                break;
+                recv(tick) -> _ => { break; }
             }
         }
     }
 }
 
-fn build_enemy_team_display_data<'a>(
-    champion: &'a ActiveChampion,
+fn draw<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) {
+    debug!("Drawing UI");
+    terminal
+        .draw(|f| {
+            let size = f.size();
+            ui::ui(f, size, app);
+        })
+        .unwrap();
+}
+
+fn setup_ui_events() -> Receiver<Event> {
+    let (tx, rx) = unbounded();
+    thread::spawn(move || loop {
+        if crossterm::event::poll(Duration::from_millis(
+            env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
+        ))
+        .unwrap()
+        {
+            let event = event::read().unwrap();
+            tx.send(event).unwrap();
+            if let Event::Key(key_event) = event {
+                if let KeyCode::Char('q') = key_event.code {
+                    break;
+                }
+            }
+        }
+    });
+
+    rx
+}
+
+fn tick() -> Receiver<()> {
+    let (tx, rx) = unbounded();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_millis(
+                env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap(),
+            ))
+            .await;
+            tx.send(()).unwrap();
+        }
+    });
+
+    rx
+}
+
+fn build_enemy_team_display_data(
+    champion: &ActiveChampion,
     active_player_data: &active_player::Root,
     ability_ranks: AbilityRanks,
     opponant_team: teams::OpponantTeam,
@@ -241,6 +378,8 @@ pub struct Bounds {
     pub gold_labels: ([String; 3], [String; 5]),
     pub cs: ([f64; 2], [f64; 2]),
     pub cs_labels: ([String; 3], [String; 5]),
+    pub vs: ([f64; 2], [f64; 2]),
+    pub vs_labels: ([String; 3], [String; 5]),
 }
 
 impl Bounds {
@@ -271,6 +410,23 @@ impl Bounds {
                 [0.0, 12.0],
             ),
             cs_labels: (
+                ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
+                [
+                    0.0.to_string(),
+                    3.0.to_string(),
+                    6.0.to_string(),
+                    9.0.to_string(),
+                    12.0.to_string(),
+                ],
+            ),
+            vs: (
+                [
+                    app.vs_per_min_past_20.front().unwrap().0,
+                    app.vs_per_min_past_20.back().unwrap().0,
+                ],
+                [0.0, 12.0],
+            ),
+            vs_labels: (
                 ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
                 [
                     0.0.to_string(),

@@ -14,7 +14,7 @@ pub async fn deserializer(
     if app.use_sample_data {
         let p = String::from(&app.active_player_json_sample);
         active_player_data = serde_json::from_str(
-            &fs::read_to_string(p + &format!("_{}.json", cycle))
+            &fs::read_to_string(p + &format!("/active_player_{}.json", cycle))
                 .expect("Failed to read string from file"),
         )
         .expect("Failed to deserialize string to active_player::Root");

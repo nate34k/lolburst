@@ -1,3 +1,5 @@
+use std::vec;
+
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -7,7 +9,7 @@ use tui::{
     widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table},
     Frame,
 };
-use tui_logger::{TuiLoggerLevelOutput, TuiLoggerWidget};
+use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget};
 
 use crate::app::{self};
 
@@ -21,10 +23,19 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     // Render the block element
     f.render_widget(block, size);
 
+    let mut constraints = vec![Constraint::Percentage(100)];
+    if app.draw_logger {
+        constraints = vec![Constraint::Length(16), Constraint::Percentage(100)];
+    }
+    let mut logger_style = Style::default();
+    if app.logger_scroll_mode {
+        logger_style = Style::default().fg(Color::Red);
+    }
+
     // Define a layout for inner_area
     let rects = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Length(16), Constraint::Percentage(100)])
+        .constraints(constraints)
         .split(inner_area);
 
     // Define a layout for data area
@@ -110,8 +121,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Define a layout for "gold per minute"
     // Set style to correct color for "gold per minute"
-    let style: Style =
-        match_paragraph_style("gold", app.gold_per_min_past_20.back().unwrap().1 as i64);
+    let style: Style = match_paragraph_style("gold", app.gold_per_min_past_20.back().unwrap().1);
     // Define paragraph for "gold per minute"
     let paragraph = Paragraph::new(&*app.gold_per_min)
         .style(style)
@@ -121,7 +131,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     f.render_widget(paragraph, paragraph_stats_rects[0]);
     // Build dataset for "gold per minute"
     let gold_per_min_dataset = vec![Dataset::default()
-        .name("data1")
+        .name("Gold Per Minute")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
@@ -165,7 +175,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Define a layout for "cs per minute"
     // Set style to correct color for "cs per minute"
-    let style: Style = match_paragraph_style("cs", app.cs_per_min_past_20.back().unwrap().1 as i64);
+    let style: Style = match_paragraph_style("cs", app.cs_per_min_past_20.back().unwrap().1);
 
     // Define paragraph for "cs per minute"
     let paragraph = Paragraph::new(app.cs_per_min.clone())
@@ -176,7 +186,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Build dataset for "cs per minute"
     let cs_per_min_dataset = vec![Dataset::default()
-        .name("data1")
+        .name("CS Per Minute")
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
@@ -207,41 +217,98 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     // Render chart for "cs per minute"
     f.render_widget(c_cs, chart_stats_rects[1]);
 
+    // Define a layout for "vs per minute"
+    // Set style to correct color for "vs per minute"
+    let style: Style = match_paragraph_style("vs", app.vs_per_min_past_20.back().unwrap().1);
+
+    // Define paragraph for "vs per minute"
     let paragraph = Paragraph::new(app.vs_per_min.clone())
-        .style(Style::default().fg(Color::White))
+        .style(style)
         .block(create_block("VS Per Minute", Style::default()))
         .alignment(Alignment::Center);
     f.render_widget(paragraph, paragraph_stats_rects[2]);
 
-    // Define formatting for log widget
-    let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
+    // Build dataset for "vs per minute"
+    let vs_per_min_dataset = vec![Dataset::default()
+        .name("VS Per Minute")
+        .marker(symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
+        .style(style)
+        .data(&app.vs_per_min_arr)];
+
+    // Build chart for "vs per minute"
+    let c_vs = Chart::new(vs_per_min_dataset)
         .block(
             Block::default()
-                .title("Log")
-                .border_style(Style::default().bg(Color::Reset))
-                .borders(Borders::ALL),
+                .borders(Borders::ALL)
+                .title("VS Per Minute"),
         )
-        .output_separator('|')
-        .output_timestamp(Some("%F %H:%M:%S%.3f".to_string()))
-        .output_level(Some(TuiLoggerLevelOutput::Long))
-        .output_target(false)
-        .output_file(false)
-        .output_line(false)
-        .style_error(Style::default().fg(Color::Red))
-        .style_debug(Style::default().fg(Color::Green))
-        .style_warn(Style::default().fg(Color::Yellow))
-        .style_trace(Style::default().fg(Color::Magenta))
-        .style_info(Style::default().fg(Color::Cyan));
+        .x_axis(
+            Axis::default()
+                .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
+                .style(Style::default())
+                .bounds(bounds.vs.0)
+                .labels(bounds.vs_labels.0.iter().cloned().map(Span::from).collect()),
+        )
+        .y_axis(
+            Axis::default()
+                .title(Span::styled("VS", Style::default().fg(Color::DarkGray)))
+                .style(Style::default())
+                .bounds(bounds.vs.1)
+                .labels(bounds.vs_labels.1.iter().cloned().map(Span::from).collect()),
+        );
 
-    // Render the log widget
-    f.render_widget(tui_w, rects[1]);
+    // Render chart for "vs per minute"
+    f.render_widget(c_vs, chart_stats_rects[2]);
+
+    if app.draw_logger {
+        // Define formatting for log widget
+        // let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
+        //     .block(
+        //         Block::default()
+        //             .title("Log")
+        //             .border_style(Style::default().bg(Color::Reset))
+        //             .borders(Borders::ALL),
+        //     )
+        //     .output_separator('|')
+        //     .output_timestamp(Some("%F %H:%M:%S%.3f".to_string()))
+        //     .output_level(Some(TuiLoggerLevelOutput::Long))
+        //     .output_target(false)
+        //     .output_file(false)
+        //     .output_line(false)
+        //     .style_error(Style::default().fg(Color::Red))
+        //     .style_debug(Style::default().fg(Color::Green))
+        //     .style_warn(Style::default().fg(Color::Yellow))
+        //     .style_trace(Style::default().fg(Color::Magenta))
+        //     .style_info(Style::default().fg(Color::Cyan));
+
+        // // Render the log widget
+        // f.render_widget(tui_w, rects[1]);
+
+        let tui_sm = TuiLoggerSmartWidget::default()
+            .style_error(Style::default().fg(Color::Red))
+            .style_debug(Style::default().fg(Color::Green))
+            .style_warn(Style::default().fg(Color::Yellow))
+            .style_trace(Style::default().fg(Color::Magenta))
+            .style_info(Style::default().fg(Color::Cyan))
+            .output_separator('|')
+            .output_timestamp(Some("%F %H:%M:%S%.3f".to_string()))
+            .output_level(Some(TuiLoggerLevelOutput::Long))
+            .output_target(true)
+            .output_file(true)
+            .output_line(true)
+            .state(&app.logger_state)
+            .highlight_style(Style::default().fg(Color::Red))
+            .border_style(logger_style);
+        f.render_widget(tui_sm, rects[1]);
+    }
 }
 
 // Function to match the stat and return the appropriate style
-fn match_paragraph_style(stat: &str, n: i64) -> Style {
+fn match_paragraph_style(stat: &str, n: f64) -> Style {
     let color = RColor::new();
     match stat {
-        "gold" => match n {
+        "gold" => match n as i64 {
             0..=199 => Style::default().fg(color.iron),
             200..=249 => Style::default().fg(color.bronze),
             250..=299 => Style::default().fg(color.silver),
@@ -255,7 +322,7 @@ fn match_paragraph_style(stat: &str, n: i64) -> Style {
                 .add_modifier(Modifier::SLOW_BLINK),
             _ => Style::default(),
         },
-        "cs" => match n {
+        "cs" => match n as i64 {
             0..=3 => Style::default().fg(color.iron),
             4 => Style::default().fg(color.bronze),
             5 => Style::default().fg(color.silver),
@@ -265,6 +332,20 @@ fn match_paragraph_style(stat: &str, n: i64) -> Style {
             10 => Style::default().fg(color.master),
             11 => Style::default().fg(color.grandmaster),
             12 => Style::default()
+                .fg(color.challenger)
+                .add_modifier(Modifier::SLOW_BLINK),
+            _ => Style::default(),
+        },
+        "vs" => match n {
+            n if n < 0.2 => Style::default().fg(color.iron),
+            n if n < 0.4 => Style::default().fg(color.bronze),
+            n if n < 0.6 => Style::default().fg(color.silver),
+            n if n < 0.8 => Style::default().fg(color.gold),
+            n if n < 1.0 => Style::default().fg(color.platinum),
+            n if n < 1.2 => Style::default().fg(color.diamond),
+            n if n < 1.4 => Style::default().fg(color.master),
+            n if n < 1.6 => Style::default().fg(color.grandmaster),
+            n if n < 4.0 => Style::default()
                 .fg(color.challenger)
                 .add_modifier(Modifier::SLOW_BLINK),
             _ => Style::default(),
