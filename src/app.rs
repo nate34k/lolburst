@@ -27,7 +27,7 @@ pub struct App {
     pub gold_total: f64,
     pub gold_per_min: String,
     pub gold_per_min_past_20: VecDeque<(f64, f64)>,
-    pub gold_per_min_arr: [(f64, f64); 20],
+    pub gold_per_min_arr: Vec<(f64, f64)>,
     pub cs_total: f64,
     pub cs_per_min: String,
     pub cs_per_min_past_20: VecDeque<(f64, f64)>,
@@ -79,11 +79,11 @@ impl App {
             logger_state: TuiWidgetState::default(),
             draw_logger: false,
             logger_scroll_mode: false,
-            gold_last_tick: 0.0,
+            gold_last_tick: 500.0,
             gold_total: 0.0,
             gold_per_min: "42".to_string(),
-            gold_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
-            gold_per_min_arr: [(0.0, 0.0); 20],
+            gold_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); get_dataset_length()]),
+            gold_per_min_arr: vec![(0.0, 0.0); get_dataset_length()],
             cs_total: 0.0,
             cs_per_min: "42".to_string(),
             cs_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
@@ -106,11 +106,8 @@ impl App {
         self.gold_per_min_past_20.pop_front();
         self.gold_per_min_past_20
             .push_back((game_time.round(), get_per_min(self.gold_total, game_time)));
-        self.gold_per_min_past_20
-            .iter()
-            .clone()
-            .enumerate()
-            .for_each(|(i, g)| self.gold_per_min_arr[i] = (g.0, g.1));
+        info!("{:?}", self.gold_per_min_past_20.back());
+        self.gold_per_min_arr = Vec::from(self.gold_per_min_past_20.clone());
         self.cs_per_min_past_20.pop_front();
         self.cs_per_min_past_20
             .push_back((game_time.round(), get_per_min(self.cs_total, game_time)));
@@ -150,8 +147,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     let champion = champions::match_champion("Orianna");
 
-    // opt_state.transition(&TuiWidgetEvent::UpKey);
-
     let mut cycle: usize = 0;
 
     let ui_events_rx = setup_ui_events();
@@ -164,14 +159,18 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
         if app.use_sample_data {
             cycle += 1;
-
+            info!("{}", cycle);
+            info!("{}", game_data.game_time);
             if cycle
                 == std::fs::read_dir(&app.active_player_json_sample)
                     .unwrap()
-                    .count()
+                    .count() - 1
             {
                 cycle = 0;
                 app.gold_total = 0.0;
+                app.gold_last_tick = 500.0;
+                app.gold_per_min_past_20 = VecDeque::from(vec![(0.0, 0.0); get_dataset_length()]);
+                app.gold_per_min_arr = vec![(0.0, 0.0); get_dataset_length()];
             }
         }
 
@@ -438,4 +437,8 @@ impl Bounds {
             ),
         }
     }
+}
+
+fn get_dataset_length() -> usize {
+    300 / (env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap() / 1000) as usize
 }

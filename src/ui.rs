@@ -136,6 +136,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .graph_type(GraphType::Line)
         .style(style)
         .data(&app.gold_per_min_arr)];
+
     // Build chart for "gold per minute"
     let c_gold = Chart::new(gold_per_min_dataset)
         .x_axis(
@@ -262,29 +263,6 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     f.render_widget(c_vs, chart_stats_rects[2]);
 
     if app.draw_logger {
-        // Define formatting for log widget
-        // let tui_w: TuiLoggerWidget = TuiLoggerWidget::default()
-        //     .block(
-        //         Block::default()
-        //             .title("Log")
-        //             .border_style(Style::default().bg(Color::Reset))
-        //             .borders(Borders::ALL),
-        //     )
-        //     .output_separator('|')
-        //     .output_timestamp(Some("%F %H:%M:%S%.3f".to_string()))
-        //     .output_level(Some(TuiLoggerLevelOutput::Long))
-        //     .output_target(false)
-        //     .output_file(false)
-        //     .output_line(false)
-        //     .style_error(Style::default().fg(Color::Red))
-        //     .style_debug(Style::default().fg(Color::Green))
-        //     .style_warn(Style::default().fg(Color::Yellow))
-        //     .style_trace(Style::default().fg(Color::Magenta))
-        //     .style_info(Style::default().fg(Color::Cyan));
-
-        // // Render the log widget
-        // f.render_widget(tui_w, rects[1]);
-
         let tui_sm = TuiLoggerSmartWidget::default()
             .style_error(Style::default().fg(Color::Red))
             .style_debug(Style::default().fg(Color::Green))

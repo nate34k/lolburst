@@ -25,14 +25,22 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
+    info!("Loading .env");
     // Load .env file
     dotenv::dotenv().expect("Failed to load env from .env");
 
+    let dt = chrono::offset::Local::now();
+
     // Early initialization of the logger
+    // Create log file
+    let s = String::from("./logs/") + &dt.format("%Y-%m-%dT%H%M%S%.6f.log").to_string();
+    tui_logger::set_log_file((s).as_str())?;
     // Set max_log_level to Trace
     tui_logger::init_logger(log::LevelFilter::Trace).unwrap();
     // Set default level for unknown targets to Trace
     tui_logger::set_default_level(log::LevelFilter::Trace);
+
+
 
     // Setup terminal
     let mut terminal = setup_terminal()?;
@@ -43,22 +51,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run app
     let res = app::run_app(&mut terminal, app).await;
 
-    // Restore terminal
-    // disable_raw_mode()?;
-    // execute!(
-    //     terminal.backend_mut(),
-    //     LeaveAlternateScreen,
-    //     DisableMouseCapture
-    // )?;
-    // terminal.show_cursor()?;
+    info!("Cleaning up terminal");
 
     // Restore terminal
     restore_terminal(&mut terminal)?;
+
+    tui_logger::move_events();
+    info!("Exiting");
 
     // If app::run_app errors print error
     if let Err(err) = res {
         println!("{:?}", err)
     }
+
 
     Ok(())
 }
