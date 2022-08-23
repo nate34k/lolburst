@@ -3,134 +3,85 @@ extern crate pretty_env_logger;
 extern crate log;
 
 use crate::champions::orianna;
-use crate::utils::{deserializer, resistance, teams};
-use log::info;
-use reqwest::Client;
-use serde_json::Value;
-use std::env;
-use tokio::time::{sleep, Duration};
+use active_player::AbilityRanks;
+use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use std::io;
+use tui::{backend::CrosstermBackend, Terminal};
 
 mod active_player;
 mod all_players;
+mod app;
 mod champions;
 mod dmg;
+mod game_data;
 mod network;
+mod ui;
 mod utils;
-
-#[derive(Debug)]
-pub struct AbilityRanks {
-    q_rank: i64,
-    w_rank: i64,
-    e_rank: i64,
-    r_rank: i64,
-}
-
-impl AbilityRanks {
-    fn new(q_rank: i64, w_rank: i64, e_rank: i64, r_rank: i64) -> Self {
-        AbilityRanks {
-            q_rank,
-            w_rank,
-            e_rank,
-            r_rank,
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env::set_var("RUST_LOG", "trace");
+    info!("Loading .env");
+    // Load .env file
     dotenv::dotenv().expect("Failed to load env from .env");
-    pretty_env_logger::init();
 
-    let active_player_json_locations = deserializer::JSONDataLocations {
-        url: env::var("ACTIVE_PLAYER_URL")?,
-        json: env::var("ACTIVE_PLAYER_JSON")?,
-    };
+    let dt = chrono::offset::Local::now();
 
-    let all_player_json_locations = deserializer::JSONDataLocations {
-        url: env::var("ALL_PLAYERS_URL")?,
-        json: env::var("ALL_PLAYERS_JSON")?,
-    };
+    // Early initialization of the logger
+    // Create log file
+    let s = String::from("./logs/") + &dt.format("%Y-%m-%dT%H%M%S%.6f.log").to_string();
+    tui_logger::set_log_file((s).as_str())?;
+    // Set max_log_level to Trace
+    tui_logger::init_logger(log::LevelFilter::Trace).unwrap();
+    // Set default level for unknown targets to Trace
+    tui_logger::set_default_level(log::LevelFilter::Trace);
 
-    let client: Client = network::build_client().await;
+    // Setup terminal
+    let mut terminal = setup_terminal()?;
 
-    let deserializer_params = deserializer::DeserializerParams {
-        use_sample_json: true,
-        active_player_json_locations,
-        all_player_json_locations,
-        client: &client,
-    };
+    // Initialize app
+    // Create app
+    let app = app::App::new();
+    // Run app
+    let res = app::run_app(&mut terminal, app).await;
 
-    if deserializer_params.use_sample_json {
-        info!("use_sample_json is true. Using JSON files in resources dir.");
+    info!("Cleaning up terminal");
+
+    // Restore terminal
+    restore_terminal(&mut terminal)?;
+
+    tui_logger::move_events();
+    info!("Exiting");
+
+    // If app::run_app errors print error
+    if let Err(err) = res {
+        println!("{:?}", err)
     }
 
-    let ddragon_url = "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
+    Ok(())
+}
 
-    let ddragon_data: Value = serde_json::from_str(
-        &network::request(&client, ddragon_url)
-            .await
-            .text()
-            .await
-            .expect("Failed to parse data for String"),
-    )
-    .expect("Failed to deserialize String into JSON Value");
+fn setup_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>, std::io::Error> {
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let terminal = Terminal::new(backend);
+    terminal
+}
 
-    let champion = champions::match_champion("Orianna");
-
-    loop {
-        let (active_player_data, all_player_data) =
-            deserializer::deserializer(&deserializer_params).await;
-
-        let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
-
-        let resistance =
-            resistance::Resistance::new(&active_player_data, &all_player_data, &ddragon_data);
-
-        // Set a Vec<f64> for opponant AR values
-        let mut ar = Vec::new();
-        for i in 0..opponant_team.opponants.len() {
-            let champion_name = &opponant_team.opponants[i].0;
-            let base_mr = ddragon_data["data"][champion_name]["stats"]["armor"]
-                .as_f64()
-                .unwrap();
-            let mr_per_level = ddragon_data["data"][champion_name]["stats"]["armorperlevel"]
-                .as_f64()
-                .unwrap();
-            let level = opponant_team.opponants[i].1 as f64;
-            let scaled_mr = base_mr + (mr_per_level * (level - 1.0));
-            ar.push(scaled_mr)
-        }
-
-        // Other data we need to print
-        let ability_ranks = AbilityRanks::new(
-            active_player_data.abilities.q.ability_level,
-            active_player_data.abilities.w.ability_level,
-            active_player_data.abilities.e.ability_level,
-            active_player_data.abilities.r.ability_level,
-        );
-
-        // Loop to print burst dmg against each enemy champion
-        for i in 0..opponant_team.opponants.len() {
-            let r = dmg::Resistance::new(resistance.armor[i], resistance.magic_resist[i]);
-            println!(
-                "Burst is {:.1} vs {}",
-                dmg::burst_dmg(&champion, &active_player_data, &ability_ranks, r),
-                opponant_team.opponants[i].0
-            );
-        }
-
-        println!("================================");
-
-        // Sleep for 5 seconds between running the loop again to save resources
-        sleep(Duration::from_secs(
-            env::var("SAMPLE_RATE")
-                .unwrap_or_else(|_| String::from("15"))
-                .parse::<u64>()
-                .unwrap_or(15),
-        ))
-        .await;
-    }
-
+fn restore_terminal(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+) -> Result<(), std::io::Error> {
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
     Ok(())
 }

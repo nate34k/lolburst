@@ -1,43 +1,39 @@
-use crate::{active_player, all_players, network};
+use crate::{active_player, all_players, app::App, game_data, network};
 use reqwest::Client;
 use std::fs;
 
-pub struct JSONDataLocations {
-    pub url: String,
-    pub json: String,
-}
-
-pub struct DeserializerParams<'a> {
-    pub use_sample_json: bool,
-    pub active_player_json_locations: JSONDataLocations,
-    pub all_player_json_locations: JSONDataLocations,
-    pub client: &'a Client,
-}
-
 pub async fn deserializer(
-    derserializer_params: &DeserializerParams<'_>,
-) -> (active_player::Root, all_players::Root) {
+    app: &App,
+    client: &Client,
+    cycle: usize,
+) -> (active_player::Root, all_players::Root, game_data::Root) {
     let active_player_data: active_player::Root;
     let all_player_data: all_players::Root;
-    let use_sample_json = derserializer_params.use_sample_json;
-    let active_player_json_locations = &derserializer_params.active_player_json_locations;
-    let all_player_json_locations = &derserializer_params.all_player_json_locations;
-    let client = derserializer_params.client;
+    let game_data: game_data::Root;
 
-    if use_sample_json {
+    if app.use_sample_data {
+        let p = String::from(&app.active_player_json_sample);
         active_player_data = serde_json::from_str(
-            &fs::read_to_string(&active_player_json_locations.json)
+            &fs::read_to_string(p + &format!("/active_player_{}.json", cycle))
                 .expect("Failed to read string from file"),
         )
         .expect("Failed to deserialize string to active_player::Root");
-        all_player_data = serde_json::from_str(
-            &fs::read_to_string(&all_player_json_locations.json)
+        let p = String::from(&app.all_players_json_sample);
+        let all_players_jsonified = String::from("{ \"allPlayers\": ")
+            + &fs::read_to_string(p + &format!("_{}.json", cycle))
+                .expect("Failed to read string from file")
+            + "}";
+        all_player_data = serde_json::from_str(&all_players_jsonified)
+            .expect("Failed to deserialize string into all_players::Root");
+        let p = String::from(&app.game_stats_json_sample);
+        game_data = serde_json::from_str(
+            &fs::read_to_string(p + &format!("_{}.json", cycle))
                 .expect("Failed to read string from file"),
         )
-        .expect("Failed to deserialize string into all_players::Root");
+        .expect("Failed to deserialize string into game_data::Root");
     } else {
         active_player_data = serde_json::from_str(
-            &network::request(client, &active_player_json_locations.url)
+            &network::request(client, &app.active_player_json_url)
                 .await
                 .text()
                 .await
@@ -45,14 +41,22 @@ pub async fn deserializer(
         )
         .expect("Failed to deserialize String into active_player::Root");
         let player_url_jsonified = String::from("{ \"allPlayers\": ")
-            + &network::request(client, &all_player_json_locations.url)
+            + &network::request(client, &app.all_players_json_url)
                 .await
                 .text()
                 .await
                 .expect("msg")
             + "}";
         all_player_data = serde_json::from_str(&player_url_jsonified).expect("msg");
+        game_data = serde_json::from_str(
+            &network::request(client, &app.game_stats_url)
+                .await
+                .text()
+                .await
+                .expect("Failed to parse data for String"),
+        )
+        .expect("Failed to deserialize String into game_data::Root");
     }
 
-    (active_player_data, all_player_data)
+    (active_player_data, all_player_data, game_data)
 }
