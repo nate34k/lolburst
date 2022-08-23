@@ -81,15 +81,23 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .height(1)
         .bottom_margin(1);
     // Set table rows
-    let burst_rows = app.burst_table_items.iter().map(|item| {
-        let height = item
+    let burst_rows = app.burst_table_items.iter().enumerate().map(|item| {
+        let height = item.1
             .iter()
             .map(|content| content.chars().filter(|c| *c == '\n').count())
             .max()
             .unwrap_or(0)
             + 1;
-        let cells = item.iter().map(|c| Cell::from(c.as_str()));
-        Row::new(cells).height(height as u16).bottom_margin(1)
+        let style: Style;
+        if item.1.last().unwrap().parse::<f64>().unwrap() > app.burst_last[item.0].parse::<f64>().unwrap() {
+            style = Style::default().fg(Color::LightGreen);
+        } else if item.1.last().unwrap().parse::<f64>().unwrap() < app.burst_last[item.0].parse::<f64>().unwrap() {
+            style = Style::default().fg(Color::Red);
+        } else {
+            style = Style::default();
+        }
+        let cells = item.1.iter().map(|c| Cell::from(c.as_str()).style(style));
+        Row::new(cells).height(height as u16)
     });
 
     // Define the burst table
@@ -141,7 +149,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     let c_gold = Chart::new(gold_per_min_dataset)
         .x_axis(
             Axis::default()
-                .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
+                .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.gold.0)
                 .labels(
@@ -156,7 +164,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         )
         .y_axis(
             Axis::default()
-                .title(Span::styled("Gold", Style::default().fg(Color::DarkGray)))
+                .title(Span::styled("GPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.gold.1)
                 .labels(
@@ -202,14 +210,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         )
         .x_axis(
             Axis::default()
-                .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
+                .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.cs.0)
                 .labels(bounds.cs_labels.0.iter().cloned().map(Span::from).collect()),
         )
         .y_axis(
             Axis::default()
-                .title(Span::styled("CS", Style::default().fg(Color::DarkGray)))
+                .title(Span::styled("CSPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.cs.1)
                 .labels(bounds.cs_labels.1.iter().cloned().map(Span::from).collect()),
@@ -246,14 +254,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         )
         .x_axis(
             Axis::default()
-                .title(Span::styled("Time", Style::default().fg(Color::DarkGray)))
+                .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.vs.0)
                 .labels(bounds.vs_labels.0.iter().cloned().map(Span::from).collect()),
         )
         .y_axis(
             Axis::default()
-                .title(Span::styled("VS", Style::default().fg(Color::DarkGray)))
+                .title(Span::styled("VSPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(bounds.vs.1)
                 .labels(bounds.vs_labels.1.iter().cloned().map(Span::from).collect()),

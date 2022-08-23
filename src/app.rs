@@ -20,6 +20,7 @@ use crate::{
 pub struct App {
     pub burst_table_state: TableState,
     pub burst_table_items: Vec<Vec<String>>,
+    pub burst_last: Vec<String>,
     pub logger_state: TuiWidgetState,
     pub draw_logger: bool,
     pub logger_scroll_mode: bool,
@@ -76,6 +77,9 @@ impl App {
                     "Row52".to_string(),
                     "Row53".to_string(),
                 ],
+            ],
+            burst_last: vec![
+                "0.0".to_string(); 5
             ],
             logger_state: TuiWidgetState::default(),
             draw_logger: false,
@@ -146,7 +150,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     // Applicaiton loop
     loop {
-
         if app.use_sample_data {
             debug!("cycle: {}", cycle);
             if cycle
@@ -163,7 +166,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
         let (active_player_data, all_player_data, game_data) =
             deserializer::deserializer(&app, &client, cycle).await;
 
-            
         if cycle == 0 {
             let offset = env::var("SAMPLE_RATE").unwrap().parse::<usize>().unwrap() / 1000;
             let offset_vec = || -> Vec<(f64, f64)> {
@@ -174,7 +176,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
                 x.into_iter().rev().collect()
             };
             app.gold_per_min_vecdeque = VecDeque::from(offset_vec());
-                // app.gold_per_min_dataset[ele.0] = ((game_data.game_time - (env::var("SAMPLE_RATE").unwrap().parse::<f64>().unwrap() / 1000.0) * (app.gold_per_min_vecdeque.len() - ele.0) as f64), 0.0);
+            // app.gold_per_min_dataset[ele.0] = ((game_data.game_time - (env::var("SAMPLE_RATE").unwrap().parse::<f64>().unwrap() / 1000.0) * (app.gold_per_min_vecdeque.len() - ele.0) as f64), 0.0);
             app.gold_per_min_dataset = vec![(0.0, 0.0); get_dataset_length()];
             app.cs_per_min_vecdeque = VecDeque::from(offset_vec());
             app.cs_per_min_dataset = vec![(0.0, 0.0); get_dataset_length()];
@@ -296,6 +298,8 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
                 recv(tick) -> _ => { break; }
             }
         }
+
+        app.burst_last =  app.burst_table_items.iter().map(|x| x.last().unwrap().clone()).collect::<Vec<_>>();
 
         cycle += 1;
     }
@@ -452,5 +456,9 @@ impl Bounds {
 }
 
 fn get_dataset_length() -> usize {
-    300 / (env::var("SAMPLE_RATE").unwrap().parse::<u64>().unwrap() / 1000) as usize
+    (env::var("DATASET_LIFETIME")
+        .unwrap()
+        .parse::<f64>()
+        .unwrap()
+        / (env::var("SAMPLE_RATE").unwrap().parse::<f64>().unwrap() / 1000.0)) as usize
 }
