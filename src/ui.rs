@@ -121,7 +121,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Define a layout for "gold per minute"
     // Set style to correct color for "gold per minute"
-    let style: Style = match_paragraph_style("gold", app.gold_per_min_past_20.back().unwrap().1);
+    let style: Style = match_paragraph_style("gold", app.gold_per_min_vecdeque.back().unwrap().1);
     // Define paragraph for "gold per minute"
     let paragraph = Paragraph::new(&*app.gold_per_min)
         .style(style)
@@ -135,7 +135,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.gold_per_min_arr)];
+        .data(&app.gold_per_min_dataset)];
 
     // Build chart for "gold per minute"
     let c_gold = Chart::new(gold_per_min_dataset)
@@ -176,7 +176,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Define a layout for "cs per minute"
     // Set style to correct color for "cs per minute"
-    let style: Style = match_paragraph_style("cs", app.cs_per_min_past_20.back().unwrap().1);
+    let style: Style = match_paragraph_style("cs", app.cs_per_min_vecdeque.back().unwrap().1);
 
     // Define paragraph for "cs per minute"
     let paragraph = Paragraph::new(app.cs_per_min.clone())
@@ -191,7 +191,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.cs_per_min_arr)];
+        .data(&app.cs_per_min_dataset)];
 
     // Build chart for "cs per minute"
     let c_cs = Chart::new(cs_per_min_dataset)
@@ -220,7 +220,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
 
     // Define a layout for "vs per minute"
     // Set style to correct color for "vs per minute"
-    let style: Style = match_paragraph_style("vs", app.vs_per_min_past_20.back().unwrap().1);
+    let style: Style = match_paragraph_style("vs", app.vs_per_min_vecdeque.back().unwrap().1);
 
     // Define paragraph for "vs per minute"
     let paragraph = Paragraph::new(app.vs_per_min.clone())
@@ -235,7 +235,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.vs_per_min_arr)];
+        .data(&app.vs_per_min_dataset)];
 
     // Build chart for "vs per minute"
     let c_vs = Chart::new(vs_per_min_dataset)

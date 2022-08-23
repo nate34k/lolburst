@@ -26,16 +26,16 @@ pub struct App {
     pub gold_last_tick: f64,
     pub gold_total: f64,
     pub gold_per_min: String,
-    pub gold_per_min_past_20: VecDeque<(f64, f64)>,
-    pub gold_per_min_arr: Vec<(f64, f64)>,
+    pub gold_per_min_vecdeque: VecDeque<(f64, f64)>,
+    pub gold_per_min_dataset: Vec<(f64, f64)>,
     pub cs_total: f64,
     pub cs_per_min: String,
-    pub cs_per_min_past_20: VecDeque<(f64, f64)>,
-    pub cs_per_min_arr: [(f64, f64); 20],
+    pub cs_per_min_vecdeque: VecDeque<(f64, f64)>,
+    pub cs_per_min_dataset: Vec<(f64, f64)>,
     pub vs_total: f64,
     pub vs_per_min: String,
-    pub vs_per_min_past_20: VecDeque<(f64, f64)>,
-    pub vs_per_min_arr: [(f64, f64); 20],
+    pub vs_per_min_vecdeque: VecDeque<(f64, f64)>,
+    pub vs_per_min_dataset: Vec<(f64, f64)>,
     pub use_sample_data: bool,
     pub active_player_json_url: String,
     pub active_player_json_sample: String,
@@ -47,6 +47,7 @@ pub struct App {
 
 impl App {
     pub fn new() -> App {
+        let dataset_length = get_dataset_length();
         App {
             burst_table_state: TableState::default(),
             burst_table_items: vec![
@@ -82,16 +83,16 @@ impl App {
             gold_last_tick: 500.0,
             gold_total: 0.0,
             gold_per_min: "42".to_string(),
-            gold_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); get_dataset_length()]),
-            gold_per_min_arr: vec![(0.0, 0.0); get_dataset_length()],
+            gold_per_min_vecdeque: VecDeque::from(vec![(0.0, 0.0); dataset_length]),
+            gold_per_min_dataset: vec![(0.0, 0.0); dataset_length],
             cs_total: 0.0,
             cs_per_min: "42".to_string(),
-            cs_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
-            cs_per_min_arr: [(0.0, 0.0); 20],
+            cs_per_min_vecdeque: VecDeque::from(vec![(0.0, 0.0); dataset_length]),
+            cs_per_min_dataset: vec![(0.0, 0.0); dataset_length],
             vs_total: 0.0,
             vs_per_min: "42".to_string(),
-            vs_per_min_past_20: VecDeque::from(vec![(0.0, 0.0); 20]),
-            vs_per_min_arr: [(0.0, 0.0); 20],
+            vs_per_min_vecdeque: VecDeque::from(vec![(0.0, 0.0); dataset_length]),
+            vs_per_min_dataset: vec![(0.0, 0.0); dataset_length],
             use_sample_data: env::var("USE_SAMPLE_DATA").unwrap_or("false".to_string()) == "true",
             active_player_json_url: env::var("ACTIVE_PLAYER_URL").unwrap(),
             active_player_json_sample: env::var("ACTIVE_PLAYER_JSON_SAMPLE").unwrap(),
@@ -103,27 +104,18 @@ impl App {
     }
 
     fn on_tick(&mut self, game_time: f64) {
-        self.gold_per_min_past_20.pop_front();
-        self.gold_per_min_past_20
+        self.gold_per_min_vecdeque.pop_front();
+        self.gold_per_min_vecdeque
             .push_back((game_time.round(), get_per_min(self.gold_total, game_time)));
-        info!("{:?}", self.gold_per_min_past_20.back());
-        self.gold_per_min_arr = Vec::from(self.gold_per_min_past_20.clone());
-        self.cs_per_min_past_20.pop_front();
-        self.cs_per_min_past_20
+        self.gold_per_min_dataset = Vec::from(self.gold_per_min_vecdeque.clone());
+        self.cs_per_min_vecdeque.pop_front();
+        self.cs_per_min_vecdeque
             .push_back((game_time.round(), get_per_min(self.cs_total, game_time)));
-        self.cs_per_min_past_20
-            .iter()
-            .clone()
-            .enumerate()
-            .for_each(|(i, c)| self.cs_per_min_arr[i] = (c.0, c.1));
-        self.vs_per_min_past_20.pop_front();
-        self.vs_per_min_past_20
+        self.cs_per_min_dataset = Vec::from(self.cs_per_min_vecdeque.clone());
+        self.vs_per_min_vecdeque.pop_front();
+        self.vs_per_min_vecdeque
             .push_back((game_time.round(), get_per_min(self.vs_total, game_time)));
-        self.vs_per_min_past_20
-            .iter()
-            .clone()
-            .enumerate()
-            .for_each(|(i, v)| self.vs_per_min_arr[i] = (v.0, v.1));
+        self.vs_per_min_dataset = Vec::from(self.vs_per_min_vecdeque.clone());
     }
 }
 
@@ -154,25 +146,43 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     // Applicaiton loop
     loop {
-        let (active_player_data, all_player_data, game_data) =
-            deserializer::deserializer(&app, &client, cycle).await;
 
         if app.use_sample_data {
-            cycle += 1;
-            info!("{}", cycle);
-            info!("{}", game_data.game_time);
+            debug!("cycle: {}", cycle);
             if cycle
                 == std::fs::read_dir(&app.active_player_json_sample)
                     .unwrap()
-                    .count() - 1
+                    .count()
             {
                 cycle = 0;
                 app.gold_total = 0.0;
                 app.gold_last_tick = 500.0;
-                app.gold_per_min_past_20 = VecDeque::from(vec![(0.0, 0.0); get_dataset_length()]);
-                app.gold_per_min_arr = vec![(0.0, 0.0); get_dataset_length()];
             }
         }
+
+        let (active_player_data, all_player_data, game_data) =
+            deserializer::deserializer(&app, &client, cycle).await;
+
+            
+        if cycle == 0 {
+            let offset = env::var("SAMPLE_RATE").unwrap().parse::<usize>().unwrap() / 1000;
+            let offset_vec = || -> Vec<(f64, f64)> {
+                let mut x = Vec::new();
+                for i in 0..get_dataset_length() {
+                    x.push(((game_data.game_time - (offset * i) as f64), 0.0));
+                }
+                x.into_iter().rev().collect()
+            };
+            app.gold_per_min_vecdeque = VecDeque::from(offset_vec());
+                // app.gold_per_min_dataset[ele.0] = ((game_data.game_time - (env::var("SAMPLE_RATE").unwrap().parse::<f64>().unwrap() / 1000.0) * (app.gold_per_min_vecdeque.len() - ele.0) as f64), 0.0);
+            app.gold_per_min_dataset = vec![(0.0, 0.0); get_dataset_length()];
+            app.cs_per_min_vecdeque = VecDeque::from(offset_vec());
+            app.cs_per_min_dataset = vec![(0.0, 0.0); get_dataset_length()];
+            app.vs_per_min_vecdeque = VecDeque::from(offset_vec());
+            app.vs_per_min_dataset = vec![(0.0, 0.0); get_dataset_length()];
+        }
+
+        debug!("game_time: {}", game_data.game_time);
 
         let opponant_team = teams::OpponantTeam::new(&active_player_data, &all_player_data);
 
@@ -286,6 +296,8 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
                 recv(tick) -> _ => { break; }
             }
         }
+
+        cycle += 1;
     }
 }
 
@@ -386,8 +398,8 @@ impl Bounds {
         Bounds {
             gold: (
                 [
-                    app.gold_per_min_past_20.front().unwrap().0,
-                    app.gold_per_min_past_20.back().unwrap().0,
+                    app.gold_per_min_vecdeque.front().unwrap().0,
+                    app.gold_per_min_vecdeque.back().unwrap().0,
                 ],
                 [0.0, 600.0],
             ),
@@ -403,8 +415,8 @@ impl Bounds {
             ),
             cs: (
                 [
-                    app.cs_per_min_past_20.front().unwrap().0,
-                    app.cs_per_min_past_20.back().unwrap().0,
+                    app.cs_per_min_vecdeque.front().unwrap().0,
+                    app.cs_per_min_vecdeque.back().unwrap().0,
                 ],
                 [0.0, 12.0],
             ),
@@ -420,8 +432,8 @@ impl Bounds {
             ),
             vs: (
                 [
-                    app.vs_per_min_past_20.front().unwrap().0,
-                    app.vs_per_min_past_20.back().unwrap().0,
+                    app.vs_per_min_vecdeque.front().unwrap().0,
+                    app.vs_per_min_vecdeque.back().unwrap().0,
                 ],
                 [0.0, 12.0],
             ),

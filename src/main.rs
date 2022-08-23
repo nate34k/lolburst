@@ -24,7 +24,6 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    
     info!("Loading .env");
     // Load .env file
     dotenv::dotenv().expect("Failed to load env from .env");
@@ -39,8 +38,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tui_logger::init_logger(log::LevelFilter::Trace).unwrap();
     // Set default level for unknown targets to Trace
     tui_logger::set_default_level(log::LevelFilter::Trace);
-
-
 
     // Setup terminal
     let mut terminal = setup_terminal()?;
@@ -64,7 +61,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{:?}", err)
     }
 
-
     Ok(())
 }
 
@@ -77,7 +73,9 @@ fn setup_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>, std::io::E
     terminal
 }
 
-fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<(), std::io::Error> {
+fn restore_terminal(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+) -> Result<(), std::io::Error> {
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
