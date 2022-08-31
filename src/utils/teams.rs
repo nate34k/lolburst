@@ -40,7 +40,8 @@ impl OpponantTeam {
                         .champion_name
                         .clone()
                         .replace('\'', "")
-                        .replace(' ', ""),
+                        .replace(' ', "")
+                        .replace('.', ""),
                     players.all_players[i].level,
                 ));
             }
