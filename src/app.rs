@@ -4,7 +4,7 @@ use crossbeam::{
     channel::{unbounded, Receiver},
     select,
 };
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::{event::{self, Event, KeyCode}};
 use reqwest::Client;
 use serde_json::Value;
 use tui::{backend::Backend, widgets::TableState, Terminal};
@@ -14,7 +14,7 @@ use crate::{
     active_player::{self, AbilityRanks},
     champions::{self, ActiveChampion},
     dmg, network, ui,
-    utils::{deserializer, resistance, teams},
+    utils::{deserializer, resistance, teams}, all_players, game_data,
 };
 
 pub struct App {
@@ -53,29 +53,29 @@ impl App {
             burst_table_state: TableState::default(),
             burst_table_items: vec![
                 vec![
-                    "Row11".to_string(),
-                    "Row12".to_string(),
-                    "Row13".to_string(),
+                    "Lucian".to_string(),
+                    "1".to_string(),
+                    "0.0".to_string(),
                 ],
                 vec![
-                    "Row21".to_string(),
-                    "Row22".to_string(),
-                    "Row23".to_string(),
+                    "Ahri".to_string(),
+                    "1".to_string(),
+                    "0.0".to_string(),
                 ],
                 vec![
-                    "Row31".to_string(),
-                    "Row32".to_string(),
-                    "Row33".to_string(),
+                    "Orianna".to_string(),
+                    "1".to_string(),
+                    "0.0".to_string(),
                 ],
                 vec![
-                    "Row41".to_string(),
-                    "Row42".to_string(),
-                    "Row43".to_string(),
+                    "Diana".to_string(),
+                    "1".to_string(),
+                    "0.0".to_string(),
                 ],
                 vec![
-                    "Row51".to_string(),
-                    "Row52".to_string(),
-                    "Row53".to_string(),
+                    "Blitzcrank".to_string(),
+                    "1".to_string(),
+                    "0.0".to_string(),
                 ],
             ],
             burst_last: vec![
@@ -145,6 +145,19 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
 
     let mut cycle: usize = 0;
 
+    // Check if game is ready
+    loop {
+        let (a, b, c) =
+            deserializer::deserializer(&app, &client, cycle).await;
+        if a.is_err() || b.is_err() || c.is_err() {
+            error!("Failed to deserialize JSON, retrying in 10 seconds");
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            continue;
+        } else {
+            break;
+        }
+    }
+
     let ui_events_rx = setup_ui_events();
     let tick = tick();
 
@@ -163,8 +176,23 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             }
         }
 
-        let (active_player_data, all_player_data, game_data) =
-            deserializer::deserializer(&app, &client, cycle).await;
+        let active_player_data: active_player::Root;
+        let all_player_data: all_players::Root;
+        let game_data: game_data::Root;
+        loop {
+            let (a, b, c) =
+                deserializer::deserializer(&app, &client, cycle).await;
+            if a.is_ok() || b.is_ok() || c.is_ok() {
+                active_player_data = a.unwrap();
+                all_player_data = b.unwrap();
+                game_data = c.unwrap();
+                break;
+            } else {
+                error!("Failed to deserialize JSON, retrying in 10 seconds");
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                continue;
+            }
+        }
 
         if cycle == 0 {
             let offset = env::var("SAMPLE_RATE").unwrap().parse::<usize>().unwrap() / 1000;
@@ -212,7 +240,14 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
             &app.gold_last_tick,
             &app.gold_total,
         );
+
+        debug!("gold_last_tick: {}", app.gold_last_tick);
+        if app.gold_last_tick != active_player_data.current_gold {
+            app.gold_last_tick = active_player_data.current_gold;
+        }
         app.gold_last_tick = active_player_data.current_gold;
+        debug!("gold_last_tick after: {}", app.gold_last_tick);
+
         app.gold_per_min = format!("{:.1}", get_per_min(app.gold_total, game_data.game_time));
 
         for i in all_player_data.all_players.iter() {
@@ -232,6 +267,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
         loop {
             select! {
                 recv(ui_events_rx) -> event => {
+                    info!("UI event");
                     match event.unwrap() {
                         Event::Key(key_event) => {
                             match key_event.code {
@@ -295,7 +331,10 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io
                         _ => {}
                     }
                 }
-                recv(tick) -> _ => { break; }
+                recv(tick) -> _ => {
+                    info!("tick event");
+                    break;
+                }
             }
         }
 
