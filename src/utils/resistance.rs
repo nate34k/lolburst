@@ -2,18 +2,18 @@ use super::teams::OpponantTeam;
 use crate::{active_player, all_players};
 use serde_json::Value;
 
-pub struct Resistance {
+pub struct OpponantResistances {
     pub armor: Vec<f64>,
     pub magic_resist: Vec<f64>,
 }
 
-impl<'a> Resistance {
+impl<'a> OpponantResistances {
     pub fn new(
         active_player: &'a active_player::Root,
         all_players: &'a all_players::Root,
         ddragon_champions: &'a Value,
     ) -> Self {
-        Resistance {
+        OpponantResistances {
             armor: Armor::get_scaled_ar(Armor::new(active_player, all_players, ddragon_champions)),
             magic_resist: MagicResist::get_scaled_mr(MagicResist::new(
                 active_player,

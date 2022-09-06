@@ -109,6 +109,7 @@ pub struct StatRune {
     pub raw_description: String,
 }
 
+#[derive(Default)]
 pub struct AbilityRanks {
     pub q_rank: i64,
     pub w_rank: i64,

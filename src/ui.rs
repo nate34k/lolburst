@@ -11,9 +11,13 @@ use tui::{
 };
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget};
 
-use crate::app::{self};
+use crate::app::{self, Stats};
 
-pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
+pub mod burst_table;
+pub mod gold;
+pub mod cs;
+
+pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     // Define a block ui element with a border and a title
     let block = Block::default().borders(Borders::ALL).title("lolburst");
 
@@ -82,16 +86,21 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .bottom_margin(1);
     // Set table rows
     let burst_rows = app.burst_table_items.iter().enumerate().map(|item| {
-        let height = item.1
+        let height = item
+            .1
             .iter()
             .map(|content| content.chars().filter(|c| *c == '\n').count())
             .max()
             .unwrap_or(0)
             + 1;
         let style: Style;
-        if item.1.last().unwrap().parse::<f64>().unwrap() > app.burst_last[item.0].parse::<f64>().unwrap() {
+        if item.1.last().unwrap().parse::<f64>().unwrap()
+            > app.burst_last[item.0].parse::<f64>().unwrap()
+        {
             style = Style::default().fg(Color::LightGreen);
-        } else if item.1.last().unwrap().parse::<f64>().unwrap() < app.burst_last[item.0].parse::<f64>().unwrap() {
+        } else if item.1.last().unwrap().parse::<f64>().unwrap()
+            < app.burst_last[item.0].parse::<f64>().unwrap()
+        {
             style = Style::default().fg(Color::Red);
         } else {
             style = Style::default();
@@ -111,7 +120,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         ]);
 
     // Render the burst table
-    f.render_stateful_widget(t, data_rects[0], &mut app.burst_table_state);
+    f.render_widget(t, data_rects[0]);
 
     // Helper closure for creating a Block for a paragraph
     let create_block = |title, style| {
@@ -125,13 +134,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
     };
 
     // Set bounds for charts to new Bounds
-    let bounds = app::Bounds::new(&app);
+    let bounds = app::Bounds::new(app);
 
     // Define a layout for "gold per minute"
     // Set style to correct color for "gold per minute"
-    let style: Style = match_paragraph_style("gold", app.gold_per_min_vecdeque.back().unwrap().1);
+    let style: Style =
+        match_paragraph_style("gold", app.gold.gold_per_min_vecdeque.back().unwrap().1);
     // Define paragraph for "gold per minute"
-    let paragraph = Paragraph::new(&*app.gold_per_min)
+    let paragraph = Paragraph::new(app.gold.string_from_per_min())
         .style(style)
         .block(create_block("Gold Per Minute", style))
         .alignment(Alignment::Center);
@@ -143,7 +153,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.gold_per_min_dataset)];
+        .data(&app.gold.gold_per_min_dataset)];
 
     // Build chart for "gold per minute"
     let c_gold = Chart::new(gold_per_min_dataset)
@@ -151,7 +161,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
             Axis::default()
                 .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(bounds.gold.0)
+                .bounds(app.gold.x_axis_bounds)
                 .labels(
                     bounds
                         .gold_labels
@@ -166,7 +176,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &mut app::App) {
             Axis::default()
                 .title(Span::styled("GPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(bounds.gold.1)
+                .bounds(app.gold.y_axis_bounds)
                 .labels(
                     bounds
                         .gold_labels

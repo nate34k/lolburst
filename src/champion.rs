@@ -1,15 +1,45 @@
+use crate::{
+    active_player::{self, AbilityRanks},
+    dmg,
+};
+
+pub mod ahri;
 pub mod orianna;
 
-#[derive(Debug)]
-pub enum ActiveChampion {
-    Orianna(orianna::Orianna),
+#[derive(Debug, Clone)]
+pub enum Champion<'a> {
+    Ahri(ahri::Ahri<'a>),
+    Orianna(orianna::Orianna<'a>),
     None,
 }
+pub struct CalculateDamageStruct<'a> {
+    pub active_player: &'a active_player::Root,
+    pub ability_ranks: &'a AbilityRanks,
+    pub rotation: &'a str,
+    pub resistance: &'a dmg::Resistance,
+}
 
-pub fn match_champion(name: &str) -> ActiveChampion {
-    match name {
-        "Orianna" => ActiveChampion::Orianna(orianna::Orianna::build()),
-        _ => ActiveChampion::None,
+pub trait CalculateDamageTrait {
+    fn calculate_damage(&self, items: CalculateDamageStruct) -> f64;
+}
+
+impl Champion<'_> {
+    pub fn new(champion: &str) -> Self {
+        match champion {
+            "Ahri" => Champion::Ahri(ahri::Ahri::default()),
+            "Orianna" => Champion::Orianna(orianna::Orianna::default()),
+            _ => Champion::None,
+        }
+    }
+}
+
+impl CalculateDamageTrait for Champion<'_> {
+    fn calculate_damage(&self, cds: CalculateDamageStruct) -> f64 {
+        match self {
+            Champion::Ahri(ahri) => ahri.calculate_damage(cds),
+            Champion::Orianna(orianna) => orianna::Orianna::calculate_damage(orianna, cds),
+            _ => 0.0,
+        }
     }
 }
 

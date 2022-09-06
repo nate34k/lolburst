@@ -1,8 +1,4 @@
-use crate::{
-    active_player::{self, AbilityRanks},
-    champions::ActiveChampion,
-};
-
+#[derive(Default)]
 pub struct Resistance {
     pub armor: f64,
     pub magic_resist: f64,
@@ -17,24 +13,14 @@ impl Resistance {
     }
 }
 
-pub fn burst_dmg(
-    active_champion: &ActiveChampion,
-    active_player: &active_player::Root,
-    ability_ranks: &AbilityRanks,
-    resistance: Resistance,
-) -> f64 {
-    match active_champion {
-        ActiveChampion::Orianna(orianna) => crate::orianna::Orianna::calculate_damage(
-            orianna,
-            active_player,
-            std::env::var("ROTATION").unwrap().as_str(),
-            ability_ranks,
-            resistance,
-        ),
-        _ => 0.0,
-    }
-}
-
 pub fn calculate_mitigation(rd: f64, resistance: f64) -> f64 {
     rd / (1.0 + (resistance / 100.0))
+}
+
+pub fn mitigate_damage_by_armor(damage: f64, armor: f64) -> f64 {
+    calculate_mitigation(damage, armor)
+}
+
+pub fn mitigate_damage_by_magic_resist(damage: f64, magic_resist: f64) -> f64 {
+    calculate_mitigation(damage, magic_resist)
 }
