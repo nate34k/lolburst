@@ -426,11 +426,11 @@ pub trait Stats {
             for i in 0..get_dataset_length(config) {
                 x.push_back(((data.game_data.game_time - (offset * i as f64)), 0.0));
             }
-            SliceDeque.into_iter().rev().collect()
+            x.into_iter().rev().collect()
         };
 
         // Reassign values to the datasets
-        reversed_vecdeque_with_offset().reverse()
+        reversed_vecdeque_with_offset()
     }
 
     fn reset_vec_dataset(&self, config: &Config) -> Vec<(f64, f64)> {
