@@ -153,7 +153,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.gold.gold_per_min_vecdeque)];
+        .data(&app.gold.gold_per_min_vecdeque.)];
 
     // Build chart for "gold per minute"
     let c_gold = Chart::new(gold_per_min_dataset)
