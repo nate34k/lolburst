@@ -7,6 +7,7 @@ use crossbeam::{
 use crossterm::event::{self, Event, KeyCode};
 use reqwest::Client;
 use serde_json::Value;
+use slice_deque::SliceDeque;
 use tui::{backend::Backend, widgets::TableState, Terminal};
 use tui_logger::{TuiWidgetEvent, TuiWidgetState};
 
@@ -75,7 +76,7 @@ impl App {
 
     fn on_tick(&mut self, game_time: f64, cur_gold: f64, cur_cs: i64) {
         self.gold.on_tick(game_time, cur_gold);
-        self.cs.on_tick(game_time, current_cs);
+        self.cs.on_tick(game_time, cur_cs);
         self.vs_per_min_vecdeque.pop_front();
         self.vs_per_min_vecdeque
             .push_back((game_time.round(), get_per_min(self.vs_total, game_time)));
@@ -136,8 +137,8 @@ pub async fn run_app<B: Backend>(
     }
 
     // spawn threads to handle additional tasks
-    let ui_events_rx = setup_ui_events(config.sample_rate);
-    let tick = tick(config.sample_rate);
+    let ui_events_rx = setup_ui_events(config.sample_rate as u64);
+    let tick = tick(config.sample_rate as u64);
 
     // Applicaiton loop
     loop {
@@ -162,6 +163,7 @@ pub async fn run_app<B: Backend>(
         // If app is on the first cycle, reset the datasets
         if cycle == 0 {
             app.gold.reset_datasets(config, data);
+            app.cs.reset_datasets(config, data);
             reset_datasets(config, &mut app, data)
         }
 
@@ -180,9 +182,6 @@ pub async fn run_app<B: Backend>(
 
         for i in data.all_player_data.all_players.iter() {
             if i.summoner_name == data.active_player_data.summoner_name {
-                app.cs_total = i.scores.creep_score as f64;
-                app.cs_per_min =
-                    format!("{:.1}", get_per_min(app.cs_total, data.game_data.game_time));
                 app.vs_total = i.scores.ward_score as f64;
                 app.vs_per_min =
                     format!("{:.1}", get_per_min(app.vs_total, data.game_data.game_time));
@@ -342,7 +341,6 @@ fn get_per_min(total: f64, game_time: f64) -> f64 {
 
 pub struct Bounds {
     pub gold_labels: ([String; 3], [String; 5]),
-    pub cs: ([f64; 2], [f64; 2]),
     pub cs_labels: ([String; 3], [String; 5]),
     pub vs: ([f64; 2], [f64; 2]),
     pub vs_labels: ([String; 3], [String; 5]),
@@ -360,13 +358,6 @@ impl Bounds {
                     450.0.to_string(),
                     600.0.to_string(),
                 ],
-            ),
-            cs: (
-                [
-                    app.cs_per_min_vecdeque.front().unwrap().0,
-                    app.cs_per_min_vecdeque.back().unwrap().0,
-                ],
-                [0.0, 12.0],
             ),
             cs_labels: (
                 ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
@@ -400,48 +391,46 @@ impl Bounds {
 }
 
 fn get_dataset_length(config: &Config) -> usize {
-    (config.dataset_lifetime / (config.sample_rate / 1000)) as usize
+    (config.dataset_lifetime / (config.sample_rate / 1000.0)) as usize
 }
 
 // Sets the datasets to the correct length and value for graphing purposes
 fn reset_datasets(config: &Config, app: &mut App, data: &Data) {
     // Set offset to sample rate and divide by 1000 to get sapmle rate in seconds
     // Offset is used to determine how far back in time the graph should start
-    let offset = config.sample_rate / 1000;
+    let offset = config.sample_rate / 1000.0;
 
     // Closure to create a VecDeque with the correct length and values for graphing
     let reversed_vecdeque_with_offset = || -> VecDeque<(f64, f64)> {
         let mut x = Vec::new();
         for i in 0..get_dataset_length(config) {
-            x.push(((data.game_data.game_time - (offset * i as u64) as f64), 0.0));
+            x.push(((data.game_data.game_time - (offset * i as f64)), 0.0));
         }
         VecDeque::from(x).into_iter().rev().collect()
     };
 
     // Reassign values to the datasets
-    app.cs_per_min_vecdeque = reversed_vecdeque_with_offset();
-    app.cs_per_min_dataset = vec![(0.0, 0.0); get_dataset_length(config)];
     app.vs_per_min_vecdeque = reversed_vecdeque_with_offset();
     app.vs_per_min_dataset = vec![(0.0, 0.0); get_dataset_length(config)];
 }
 
 pub trait Stats {
-    fn reset_vecdeque_dataset(&self, config: &Config, data: &Data) -> VecDeque<(f64, f64)> {
+    fn reset_vecdeque_dataset(&self, config: &Config, data: &Data) -> SliceDeque<(f64, f64)> {
         // Set offset to sample rate and divide by 1000 to get sapmle rate in seconds
         // Offset is used to determine how far back in time the graph should start
-        let offset = config.sample_rate / 1000;
+        let offset = config.sample_rate / 1000.0;
 
         // Closure to create a VecDeque with the correct length and values for graphing
-        let reversed_vecdeque_with_offset = || -> VecDeque<(f64, f64)> {
-            let mut x = Vec::new();
+        let reversed_vecdeque_with_offset = || -> SliceDeque<(f64, f64)> {
+            let mut x = SliceDeque::new();
             for i in 0..get_dataset_length(config) {
-                x.push(((data.game_data.game_time - (offset * i as u64) as f64), 0.0));
+                x.push_back(((data.game_data.game_time - (offset * i as f64)), 0.0));
             }
-            VecDeque::from(x).into_iter().rev().collect()
+            SliceDeque.into_iter().rev().collect()
         };
 
         // Reassign values to the datasets
-        reversed_vecdeque_with_offset()
+        reversed_vecdeque_with_offset().reverse()
     }
 
     fn reset_vec_dataset(&self, config: &Config) -> Vec<(f64, f64)> {

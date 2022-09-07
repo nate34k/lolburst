@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::VecDeque};
 
+use slice_deque::SliceDeque;
+
 use crate::{
     app::{Data, Stats},
     config::Config,
@@ -9,7 +11,7 @@ pub struct Gold {
     pub gold_last_tick: f64,
     pub gold_total: f64,
     pub gold_per_min: f64,
-    pub gold_per_min_vecdeque: VecDeque<(f64, f64)>,
+    pub gold_per_min_vecdeque: SliceDeque<(f64, f64)>,
     pub gold_per_min_dataset: Vec<(f64, f64)>,
     pub x_axis_bounds: [f64; 2],
     pub y_axis_bounds: [f64; 2],
@@ -21,7 +23,7 @@ impl Gold {
             gold_last_tick: 500.0,
             gold_total: 0.0,
             gold_per_min: 0.0,
-            gold_per_min_vecdeque: VecDeque::new(),
+            gold_per_min_vecdeque: SliceDeque::new(),
             gold_per_min_dataset: Vec::new(),
             x_axis_bounds: [0.0, 0.0],
             y_axis_bounds: [0.0, 600.0],
@@ -57,15 +59,19 @@ impl Gold {
         self.gold_per_min_dataset = self.reset_vec_dataset(config);
     }
 
+    fn update_datasets(&mut self, game_time: f64) {
+        self.gold_per_min_vecdeque.pop_front();
+        self.gold_per_min_vecdeque
+            .push_back((game_time.round(), self.gold_per_min));
+        self.gold_per_min_dataset = self.gold_per_min_vecdeque.iter().map(|(x, y)| (*x, *y)).collect();
+    }
+
     pub fn on_tick(&mut self, game_time: f64, current_gold: f64) {
         self.update_gold_total(current_gold);
         self.update_gold_last_tick(current_gold);
         self.update_gold_per_min(game_time);
-        self.gold_per_min_vecdeque.pop_front();
-        self.gold_per_min_vecdeque
-            .push_back((game_time.round(), self.gold_per_min));
+        self.update_datasets(game_time);
         self.update_axis();
-        self.gold_per_min_dataset = Vec::from(self.gold_per_min_vecdeque.clone());
     }
 }
 

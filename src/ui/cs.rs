@@ -19,7 +19,7 @@ impl CS {
             cs_per_min_vecdeque: VecDeque::new(),
             cs_per_min_dataset: Vec::new(),
             x_axis_bounds: [0.0, 0.0],
-            y_axis_bounds: [0.0, 600.0],
+            y_axis_bounds: [0.0, 12.0],
         }
     }
 
@@ -46,11 +46,16 @@ impl CS {
         self.cs_per_min_dataset = self.reset_vec_dataset(config);
     }
 
+    fn update_datasets(&mut self, game_time: f64) {
+        self.cs_per_min_vecdeque.pop_front();
+        self.cs_per_min_vecdeque.push_back((game_time, self.cs_per_min));
+        self.cs_per_min_dataset = self.cs_per_min_vecdeque.iter().map(|(x, y)| (*x, *y)).collect();
+    }
+
     pub fn on_tick(&mut self, game_time: f64, current_cs: i64) {
         self.update_cs_total(current_cs);
         self.update_cs_per_min(game_time);
-        self.cs_per_min_vecdeque.push_back((game_time, self.cs_per_min));
-        self.cs_per_min_dataset.push((game_time, self.cs_per_min));
+        self.update_datasets(game_time);
         self.update_axis();
     }
 }

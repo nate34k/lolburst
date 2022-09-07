@@ -153,7 +153,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.gold.gold_per_min_dataset)];
+        .data(&app.gold.gold_per_min_vecdeque)];
 
     // Build chart for "gold per minute"
     let c_gold = Chart::new(gold_per_min_dataset)
@@ -194,10 +194,10 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
 
     // Define a layout for "cs per minute"
     // Set style to correct color for "cs per minute"
-    let style: Style = match_paragraph_style("cs", app.cs_per_min_vecdeque.back().unwrap().1);
+    let style: Style = match_paragraph_style("cs", app.cs.cs_per_min_vecdeque.back().unwrap().1);
 
     // Define paragraph for "cs per minute"
-    let paragraph = Paragraph::new(app.cs_per_min.clone())
+    let paragraph = Paragraph::new(app.cs.string_from_per_min())
         .style(style)
         .block(create_block("CS Per Minute", style))
         .alignment(Alignment::Center);
@@ -209,7 +209,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.cs_per_min_dataset)];
+        .data(&app.cs.cs_per_min_dataset)];
 
     // Build chart for "cs per minute"
     let c_cs = Chart::new(cs_per_min_dataset)
@@ -222,14 +222,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
             Axis::default()
                 .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(bounds.cs.0)
+                .bounds(app.cs.x_axis_bounds)
                 .labels(bounds.cs_labels.0.iter().cloned().map(Span::from).collect()),
         )
         .y_axis(
             Axis::default()
                 .title(Span::styled("CSPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(bounds.cs.1)
+                .bounds(app.cs.y_axis_bounds)
                 .labels(bounds.cs_labels.1.iter().cloned().map(Span::from).collect()),
         );
 
