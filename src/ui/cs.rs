@@ -1,12 +1,11 @@
-use std::collections::VecDeque;
+use slice_deque::SliceDeque;
 
 use crate::{app::{Stats, Data}, config::Config};
 
 pub struct CS {
     pub cs_total: i64,
     pub cs_per_min: f64,
-    pub cs_per_min_vecdeque: VecDeque<(f64, f64)>,
-    pub cs_per_min_dataset: Vec<(f64, f64)>,
+    pub cs_per_min_vecdeque: SliceDeque<(f64, f64)>,
     pub x_axis_bounds: [f64; 2],
     pub y_axis_bounds: [f64; 2],
 }
@@ -16,8 +15,7 @@ impl CS {
         CS {
             cs_total: 0,
             cs_per_min: 0.0,
-            cs_per_min_vecdeque: VecDeque::new(),
-            cs_per_min_dataset: Vec::new(),
+            cs_per_min_vecdeque: SliceDeque::new(),
             x_axis_bounds: [0.0, 0.0],
             y_axis_bounds: [0.0, 12.0],
         }
@@ -43,13 +41,11 @@ impl CS {
 
     pub fn reset_datasets(&mut self, config: &Config, data: &Data) {
         self.cs_per_min_vecdeque = self.reset_vecdeque_dataset(config, data);
-        self.cs_per_min_dataset = self.reset_vec_dataset(config);
     }
 
     fn update_datasets(&mut self, game_time: f64) {
         self.cs_per_min_vecdeque.pop_front();
         self.cs_per_min_vecdeque.push_back((game_time, self.cs_per_min));
-        self.cs_per_min_dataset = self.cs_per_min_vecdeque.iter().map(|(x, y)| (*x, *y)).collect();
     }
 
     pub fn on_tick(&mut self, game_time: f64, current_cs: i64) {

@@ -16,6 +16,7 @@ use crate::app::{self, Stats};
 pub mod burst_table;
 pub mod gold;
 pub mod cs;
+pub mod vs;
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     // Define a block ui element with a border and a title
@@ -134,7 +135,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     };
 
     // Set bounds for charts to new Bounds
-    let bounds = app::Bounds::new(app);
+    let bounds = app::Bounds::new();
 
     // Define a layout for "gold per minute"
     // Set style to correct color for "gold per minute"
@@ -209,7 +210,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.cs.cs_per_min_dataset)];
+        .data(&app.cs.cs_per_min_vecdeque)];
 
     // Build chart for "cs per minute"
     let c_cs = Chart::new(cs_per_min_dataset)
@@ -238,10 +239,10 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
 
     // Define a layout for "vs per minute"
     // Set style to correct color for "vs per minute"
-    let style: Style = match_paragraph_style("vs", app.vs_per_min_vecdeque.back().unwrap().1);
+    let style: Style = match_paragraph_style("vs", app.vs.vs_per_min_vecdeque.back().unwrap().1);
 
     // Define paragraph for "vs per minute"
-    let paragraph = Paragraph::new(app.vs_per_min.clone())
+    let paragraph = Paragraph::new(app.vs.string_from_per_min())
         .style(style)
         .block(create_block("VS Per Minute", Style::default()))
         .alignment(Alignment::Center);
@@ -253,7 +254,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         .marker(symbols::Marker::Braille)
         .graph_type(GraphType::Line)
         .style(style)
-        .data(&app.vs_per_min_dataset)];
+        .data(&app.vs.vs_per_min_vecdeque)];
 
     // Build chart for "vs per minute"
     let c_vs = Chart::new(vs_per_min_dataset)
@@ -266,14 +267,14 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
             Axis::default()
                 .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(bounds.vs.0)
+                .bounds(app.vs.x_axis_bounds)
                 .labels(bounds.vs_labels.0.iter().cloned().map(Span::from).collect()),
         )
         .y_axis(
             Axis::default()
                 .title(Span::styled("VSPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
-                .bounds(bounds.vs.1)
+                .bounds(app.vs.y_axis_bounds)
                 .labels(bounds.vs_labels.1.iter().cloned().map(Span::from).collect()),
         );
 

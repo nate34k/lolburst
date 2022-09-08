@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io, thread, time::Duration};
+use std::{io, thread, time::{Duration, self}};
 
 use crossbeam::{
     channel::{unbounded, Receiver},
@@ -30,10 +30,7 @@ pub struct App {
     pub logger_scroll_mode: bool,
     pub gold: ui::gold::Gold,
     pub cs: ui::cs::CS,
-    pub vs_total: f64,
-    pub vs_per_min: String,
-    pub vs_per_min_vecdeque: VecDeque<(f64, f64)>,
-    pub vs_per_min_dataset: Vec<(f64, f64)>,
+    pub vs: ui::vs::VS,
     pub use_sample_data: bool,
     pub active_player_json_url: &'static str,
     pub active_player_json_sample: &'static str,
@@ -60,10 +57,7 @@ impl App {
             logger_scroll_mode: false,
             gold: ui::gold::Gold::new(),
             cs: ui::cs::CS::new(),
-            vs_total: 0.0,
-            vs_per_min: "42".to_string(),
-            vs_per_min_vecdeque: VecDeque::from(vec![(0.0, 0.0); 1]),
-            vs_per_min_dataset: vec![(0.0, 0.0); 1],
+            vs: ui::vs::VS::new(),
             use_sample_data: c.use_sample_data,
             active_player_json_url: crate::ACTIVE_PLAYER_URL,
             active_player_json_sample: crate::ACTIVE_PLAYER_JSON_SAMPLE,
@@ -74,13 +68,10 @@ impl App {
         }
     }
 
-    fn on_tick(&mut self, game_time: f64, cur_gold: f64, cur_cs: i64) {
+    fn on_tick(&mut self, game_time: f64, cur_gold: f64, cur_cs: i64, cur_vs: f64) {
         self.gold.on_tick(game_time, cur_gold);
         self.cs.on_tick(game_time, cur_cs);
-        self.vs_per_min_vecdeque.pop_front();
-        self.vs_per_min_vecdeque
-            .push_back((game_time.round(), get_per_min(self.vs_total, game_time)));
-        self.vs_per_min_dataset = Vec::from(self.vs_per_min_vecdeque.clone());
+        self.vs.on_tick(game_time, cur_vs);
     }
 }
 
@@ -137,11 +128,11 @@ pub async fn run_app<B: Backend>(
     }
 
     // spawn threads to handle additional tasks
-    let ui_events_rx = setup_ui_events(config.sample_rate as u64);
-    let tick = tick(config.sample_rate as u64);
+    let ui_events_rx = setup_ui_events();
 
     // Applicaiton loop
     loop {
+        let time = time::Instant::now();
         // Check if we are using sample data and if so, check if we need to cycle the data back to the beginning
         if app.use_sample_data {
             debug!("cycle: {}", cycle);
@@ -164,7 +155,7 @@ pub async fn run_app<B: Backend>(
         if cycle == 0 {
             app.gold.reset_datasets(config, data);
             app.cs.reset_datasets(config, data);
-            reset_datasets(config, &mut app, data)
+            app.vs.reset_datasets(config, data);
         }
 
         debug!("game_time: {}", data.game_data.game_time);
@@ -180,21 +171,14 @@ pub async fn run_app<B: Backend>(
         // Update app.burst_table_items to the correct Vec<Vec<String>>
         app.burst_table_items = BurstTable::build_burst_table_items(burst_table);
 
-        for i in data.all_player_data.all_players.iter() {
-            if i.summoner_name == data.active_player_data.summoner_name {
-                app.vs_total = i.scores.ward_score as f64;
-                app.vs_per_min =
-                    format!("{:.1}", get_per_min(app.vs_total, data.game_data.game_time));
-            }
-        }
-
         app.on_tick(
             data.game_data.game_time,
             data.active_player_data.current_gold,
             data.all_player_data.all_players[player_index].scores.creep_score,
+            data.all_player_data.all_players[player_index].scores.ward_score,
         );
 
-        draw(terminal, &mut app);
+        draw(terminal, &app);
 
         // Handle UI events
         loop {
@@ -255,15 +239,14 @@ pub async fn run_app<B: Backend>(
                                 _ => {}
                             }
                             debug!("{:?}", key_event);
-                            draw(terminal, &mut app);
+                            draw(terminal, &app);
                         }
                         UIEvent::Resize(_x, _y) => {
-                            draw(terminal, &mut app);
+                            draw(terminal, &app);
                         }
-                        _ => {}
                     }
                 }
-                recv(tick) -> _ => {
+                default(Duration::from_secs(config.sample_rate)) => {
                     break;
                 }
             }
@@ -276,10 +259,12 @@ pub async fn run_app<B: Backend>(
             .collect::<Vec<_>>();
 
         cycle += 1;
+
+        info!("cycle took: {:?}", time.elapsed());
     }
 }
 
-fn draw<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) {
+fn draw<B: Backend>(terminal: &mut Terminal<B>, app: &App) {
     terminal
         .draw(|f| {
             let size = f.size();
@@ -289,65 +274,41 @@ fn draw<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) {
 }
 
 enum UIEvent {
-    Tick,
     Key(event::KeyEvent),
     Resize(u16, u16),
 }
 
-fn setup_ui_events(sample_rate: u64) -> Receiver<UIEvent> {
+fn setup_ui_events() -> Receiver<UIEvent> {
     let (tx, rx) = unbounded();
     thread::spawn(move || loop {
-        if crossterm::event::poll(Duration::from_millis(sample_rate)).unwrap() {
-            let event = event::read().unwrap();
-            match event {
-                Event::Mouse(_) => {}
-                Event::Key(key_code) => {
-                    tx.send(UIEvent::Key(key_code)).unwrap();
-                }
-                Event::Resize(x, y) => {
-                    tx.send(UIEvent::Resize(x, y)).unwrap();
-                }
+        let event = event::read().unwrap();
+        match event {
+            Event::Mouse(_) => {}
+            Event::Key(key_code) => {
+                tx.send(UIEvent::Key(key_code)).unwrap();
             }
-            if let Event::Key(key_event) = event {
-                if let KeyCode::Char('q') = key_event.code {
-                    break;
-                }
+            Event::Resize(x, y) => {
+                tx.send(UIEvent::Resize(x, y)).unwrap();
+            }
+        }
+        if let Event::Key(key_event) = event {
+            if let KeyCode::Char('q') = key_event.code {
+                break;
             }
         }
     });
 
     rx
-}
-
-fn tick(sample_rate: u64) -> Receiver<UIEvent> {
-    let (tx, rx) = unbounded();
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(Duration::from_millis(sample_rate)).await;
-            tx.send(UIEvent::Tick).unwrap();
-        }
-    });
-
-    rx
-}
-
-fn get_per_min(total: f64, game_time: f64) -> f64 {
-    if game_time < 1.0 {
-        total.floor() / (game_time / 60.0).ceil()
-    } else {
-        total.floor() / (game_time / 60.0)
-    }
 }
 
 pub struct Bounds {
     pub gold_labels: ([String; 3], [String; 5]),
     pub cs_labels: ([String; 3], [String; 5]),
-    pub vs: ([f64; 2], [f64; 2]),
     pub vs_labels: ([String; 3], [String; 5]),
 }
 
 impl Bounds {
-    pub fn new(app: &App) -> Bounds {
+    pub fn new() -> Bounds {
         Bounds {
             gold_labels: (
                 ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
@@ -369,21 +330,14 @@ impl Bounds {
                     12.0.to_string(),
                 ],
             ),
-            vs: (
-                [
-                    app.vs_per_min_vecdeque.front().unwrap().0,
-                    app.vs_per_min_vecdeque.back().unwrap().0,
-                ],
-                [0.0, 12.0],
-            ),
             vs_labels: (
                 ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
                 [
                     0.0.to_string(),
-                    3.0.to_string(),
-                    6.0.to_string(),
-                    9.0.to_string(),
-                    12.0.to_string(),
+                    0.5.to_string(),
+                    1.0.to_string(),
+                    1.5.to_string(),
+                    2.0.to_string(),
                 ],
             ),
         }
@@ -391,40 +345,20 @@ impl Bounds {
 }
 
 fn get_dataset_length(config: &Config) -> usize {
-    (config.dataset_lifetime / (config.sample_rate / 1000.0)) as usize
-}
-
-// Sets the datasets to the correct length and value for graphing purposes
-fn reset_datasets(config: &Config, app: &mut App, data: &Data) {
-    // Set offset to sample rate and divide by 1000 to get sapmle rate in seconds
-    // Offset is used to determine how far back in time the graph should start
-    let offset = config.sample_rate / 1000.0;
-
-    // Closure to create a VecDeque with the correct length and values for graphing
-    let reversed_vecdeque_with_offset = || -> VecDeque<(f64, f64)> {
-        let mut x = Vec::new();
-        for i in 0..get_dataset_length(config) {
-            x.push(((data.game_data.game_time - (offset * i as f64)), 0.0));
-        }
-        VecDeque::from(x).into_iter().rev().collect()
-    };
-
-    // Reassign values to the datasets
-    app.vs_per_min_vecdeque = reversed_vecdeque_with_offset();
-    app.vs_per_min_dataset = vec![(0.0, 0.0); get_dataset_length(config)];
+    (config.dataset_lifetime as f64 / (config.sample_rate as f64)) as usize
 }
 
 pub trait Stats {
     fn reset_vecdeque_dataset(&self, config: &Config, data: &Data) -> SliceDeque<(f64, f64)> {
         // Set offset to sample rate and divide by 1000 to get sapmle rate in seconds
         // Offset is used to determine how far back in time the graph should start
-        let offset = config.sample_rate / 1000.0;
+        let offset = config.sample_rate as usize;
 
         // Closure to create a VecDeque with the correct length and values for graphing
         let reversed_vecdeque_with_offset = || -> SliceDeque<(f64, f64)> {
             let mut x = SliceDeque::new();
             for i in 0..get_dataset_length(config) {
-                x.push_back(((data.game_data.game_time - (offset * i as f64)), 0.0));
+                x.push_back(((data.game_data.game_time - (offset * i) as f64), 0.0));
             }
             x.into_iter().rev().collect()
         };

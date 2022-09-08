@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub use_sample_data: bool,
-    pub sample_rate: f64,
-    pub dataset_lifetime: f64,
+    pub sample_rate: u64,
+    pub dataset_lifetime: u64,
     pub rotation: String,
 }
 
@@ -15,8 +15,8 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             use_sample_data: false,
-            sample_rate: 5000.0,
-            dataset_lifetime: 3000.0,
+            sample_rate: 5000,
+            dataset_lifetime: 3000,
             rotation: String::from("QWE"),
         }
     }
