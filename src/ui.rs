@@ -14,8 +14,8 @@ use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget};
 use crate::app::{self, Stats};
 
 pub mod burst_table;
-pub mod gold;
 pub mod cs;
+pub mod gold;
 pub mod vs;
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
@@ -134,9 +134,6 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
             ))
     };
 
-    // Set bounds for charts to new Bounds
-    let bounds = app::Bounds::new();
-
     // Define a layout for "gold per minute"
     // Set style to correct color for "gold per minute"
     let style: Style =
@@ -164,9 +161,8 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
                 .style(Style::default())
                 .bounds(app.gold.x_axis_bounds)
                 .labels(
-                    bounds
-                        .gold_labels
-                        .0
+                    app.gold
+                        .x_axis_labels
                         .iter()
                         .cloned()
                         .map(Span::from)
@@ -179,9 +175,8 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
                 .style(Style::default())
                 .bounds(app.gold.y_axis_bounds)
                 .labels(
-                    bounds
-                        .gold_labels
-                        .1
+                    app.gold
+                        .y_axis_labels
                         .iter()
                         .cloned()
                         .map(Span::from)
@@ -224,14 +219,28 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
                 .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(app.cs.x_axis_bounds)
-                .labels(bounds.cs_labels.0.iter().cloned().map(Span::from).collect()),
+                .labels(
+                    app.cs
+                        .x_axis_labels
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
         )
         .y_axis(
             Axis::default()
                 .title(Span::styled("CSPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(app.cs.y_axis_bounds)
-                .labels(bounds.cs_labels.1.iter().cloned().map(Span::from).collect()),
+                .labels(
+                    app.cs
+                        .y_axis_labels
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
         );
 
     // Render chart for "cs per minute"
@@ -268,14 +277,28 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
                 .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(app.vs.x_axis_bounds)
-                .labels(bounds.vs_labels.0.iter().cloned().map(Span::from).collect()),
+                .labels(
+                    app.vs
+                        .x_axis_labels
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
         )
         .y_axis(
             Axis::default()
                 .title(Span::styled("VSPM", Style::default().fg(Color::DarkGray)))
                 .style(Style::default())
                 .bounds(app.vs.y_axis_bounds)
-                .labels(bounds.vs_labels.1.iter().cloned().map(Span::from).collect()),
+                .labels(
+                    app.vs
+                        .y_axis_labels
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
         );
 
     // Render chart for "vs per minute"

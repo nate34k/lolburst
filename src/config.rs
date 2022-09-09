@@ -15,8 +15,8 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             use_sample_data: false,
-            sample_rate: 5000,
-            dataset_lifetime: 3000,
+            sample_rate: 1,
+            dataset_lifetime: 300,
             rotation: String::from("QWE"),
         }
     }

@@ -14,6 +14,8 @@ pub struct Gold {
     pub gold_per_min_vecdeque: SliceDeque<(f64, f64)>,
     pub x_axis_bounds: [f64; 2],
     pub y_axis_bounds: [f64; 2],
+    pub x_axis_labels: [String; 3],
+    pub y_axis_labels: [String; 5],
 }
 
 impl Gold {
@@ -25,6 +27,14 @@ impl Gold {
             gold_per_min_vecdeque: SliceDeque::new(),
             x_axis_bounds: [0.0, 0.0],
             y_axis_bounds: [0.0, 600.0],
+            x_axis_labels: ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
+            y_axis_labels: [
+                0.0.to_string(),
+                150.0.to_string(),
+                300.0.to_string(),
+                450.0.to_string(),
+                600.0.to_string(),
+            ],
         }
     }
 

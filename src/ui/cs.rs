@@ -1,6 +1,9 @@
 use slice_deque::SliceDeque;
 
-use crate::{app::{Stats, Data}, config::Config};
+use crate::{
+    app::{Data, Stats},
+    config::Config,
+};
 
 pub struct CS {
     pub cs_total: i64,
@@ -8,6 +11,8 @@ pub struct CS {
     pub cs_per_min_vecdeque: SliceDeque<(f64, f64)>,
     pub x_axis_bounds: [f64; 2],
     pub y_axis_bounds: [f64; 2],
+    pub x_axis_labels: [String; 3],
+    pub y_axis_labels: [String; 5],
 }
 
 impl CS {
@@ -18,6 +23,14 @@ impl CS {
             cs_per_min_vecdeque: SliceDeque::new(),
             x_axis_bounds: [0.0, 0.0],
             y_axis_bounds: [0.0, 12.0],
+            x_axis_labels: ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
+            y_axis_labels: [
+                0.0.to_string(),
+                3.0.to_string(),
+                6.0.to_string(),
+                9.0.to_string(),
+                12.0.to_string(),
+            ],
         }
     }
 
@@ -45,7 +58,8 @@ impl CS {
 
     fn update_datasets(&mut self, game_time: f64) {
         self.cs_per_min_vecdeque.pop_front();
-        self.cs_per_min_vecdeque.push_back((game_time, self.cs_per_min));
+        self.cs_per_min_vecdeque
+            .push_back((game_time, self.cs_per_min));
     }
 
     pub fn on_tick(&mut self, game_time: f64, current_cs: i64) {

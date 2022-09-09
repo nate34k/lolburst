@@ -17,18 +17,13 @@ mod champion;
 mod config;
 mod dmg;
 mod game_data;
+mod handlers;
 mod network;
 mod ui;
 mod utils;
 
 const DATA_DRAGON_URL: &str =
     "http://ddragon.leagueoflegends.com/cdn/12.13.1/data/en_US/champion.json";
-const ACTIVE_PLAYER_JSON_SAMPLE: &str = "./resources/active_player";
-const ACTIVE_PLAYER_URL: &str = "https://127.0.0.1:2999/liveclientdata/activeplayer";
-const ALL_PLAYERS_JSON_SAMPLE: &str = "./resources/all_players/all_players";
-const ALL_PLAYERS_URL: &str = "https://127.0.0.1:2999/liveclientdata/playerlist";
-const GAME_STATS_JSON_SAMPLE: &str = "./resources/game_data/game_data";
-const GAME_STATS_URL: &str = "https://127.0.0.1:2999/liveclientdata/gamestats";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

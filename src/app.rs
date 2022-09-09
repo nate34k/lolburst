@@ -1,4 +1,7 @@
-use std::{io, thread, time::{Duration, self}};
+use std::{
+    io, thread,
+    time::{self, Duration, Instant},
+};
 
 use crossbeam::{
     channel::{unbounded, Receiver},
@@ -9,14 +12,16 @@ use reqwest::Client;
 use serde_json::Value;
 use slice_deque::SliceDeque;
 use tui::{backend::Backend, widgets::TableState, Terminal};
-use tui_logger::{TuiWidgetEvent, TuiWidgetState};
+use tui_logger::TuiWidgetState;
 
 use crate::{
     active_player::{self},
     all_players,
     champion::{self, Champion},
     config::Config,
-    game_data, network, ui,
+    game_data,
+    handlers::keyboard::{handle_keyboard, KeyboardHandler},
+    network, ui,
     ui::burst_table::BurstTable,
     utils::{deserializer, teams},
 };
@@ -31,13 +36,8 @@ pub struct App {
     pub gold: ui::gold::Gold,
     pub cs: ui::cs::CS,
     pub vs: ui::vs::VS,
+    last_tick: time::Instant,
     pub use_sample_data: bool,
-    pub active_player_json_url: &'static str,
-    pub active_player_json_sample: &'static str,
-    pub all_players_json_url: &'static str,
-    pub all_players_json_sample: &'static str,
-    pub game_stats_url: &'static str,
-    pub game_stats_json_sample: &'static str,
 }
 
 impl App {
@@ -58,13 +58,8 @@ impl App {
             gold: ui::gold::Gold::new(),
             cs: ui::cs::CS::new(),
             vs: ui::vs::VS::new(),
+            last_tick: time::Instant::now(),
             use_sample_data: c.use_sample_data,
-            active_player_json_url: crate::ACTIVE_PLAYER_URL,
-            active_player_json_sample: crate::ACTIVE_PLAYER_JSON_SAMPLE,
-            all_players_json_url: crate::ALL_PLAYERS_URL,
-            all_players_json_sample: crate::ALL_PLAYERS_JSON_SAMPLE,
-            game_stats_url: crate::GAME_STATS_URL,
-            game_stats_json_sample: crate::GAME_STATS_JSON_SAMPLE,
         }
     }
 
@@ -72,6 +67,18 @@ impl App {
         self.gold.on_tick(game_time, cur_gold);
         self.cs.on_tick(game_time, cur_cs);
         self.vs.on_tick(game_time, cur_vs);
+    }
+
+    fn check_elapsed_time(&mut self, sample_rate: u64) {
+        if self.last_tick.elapsed() >= Duration::from_millis(sample_rate * 1000) {
+            self.last_tick = Instant::now();
+        }
+    }
+
+    fn get_timeout(&self, sample_rate: u64) -> Duration {
+        Duration::from_millis(sample_rate * 1000)
+            .checked_sub(self.last_tick.elapsed())
+            .unwrap_or_else(|| Duration::from_millis(0))
     }
 }
 
@@ -113,9 +120,13 @@ pub async fn run_app<B: Backend>(
         let data = deserializer::deserializer(&app, &client, cycle).await;
         match data {
             Ok(data) => {
-                let (i, _, c) = teams::get_active_player(&data.active_player_data, &data.all_player_data);
+                let (i, _, c) =
+                    teams::get_active_player(&data.active_player_data, &data.all_player_data);
                 player_index = i;
                 champion = champion::Champion::new(c.as_str());
+                app.gold.reset_datasets(config, &data);
+                app.cs.reset_datasets(config, &data);
+                app.vs.reset_datasets(config, &data);
                 break;
             }
             Err(err) => {
@@ -127,141 +138,85 @@ pub async fn run_app<B: Backend>(
         }
     }
 
-    // spawn threads to handle additional tasks
+    // Spawn threads to handle additional tasks
     let ui_events_rx = setup_ui_events();
 
     // Applicaiton loop
     loop {
         let time = time::Instant::now();
-        // Check if we are using sample data and if so, check if we need to cycle the data back to the beginning
-        if app.use_sample_data {
-            debug!("cycle: {}", cycle);
-            if cycle
-                == std::fs::read_dir(&app.active_player_json_sample)
-                    .unwrap()
-                    .count()
-            {
-                cycle = 0;
-                app.gold = ui::gold::Gold::new();
-            }
-        }
-
-        // Deserialize data from Riot API into Data struct
-        let data = &deserializer::deserializer(&app, &client, cycle)
-            .await
-            .unwrap();
-
-        // If app is on the first cycle, reset the datasets
-        if cycle == 0 {
-            app.gold.reset_datasets(config, data);
-            app.cs.reset_datasets(config, data);
-            app.vs.reset_datasets(config, data);
-        }
-
-        debug!("game_time: {}", data.game_data.game_time);
-
-        // Set burst_table to a new BurstTable
-        let burst_table = BurstTable {
-            champion: &champion,
-            data,
-            data_dragon_data: &data_dragon_champions,
-            rotation: &config.rotation,
-        };
-
-        // Update app.burst_table_items to the correct Vec<Vec<String>>
-        app.burst_table_items = BurstTable::build_burst_table_items(burst_table);
-
-        app.on_tick(
-            data.game_data.game_time,
-            data.active_player_data.current_gold,
-            data.all_player_data.all_players[player_index].scores.creep_score,
-            data.all_player_data.all_players[player_index].scores.ward_score,
-        );
 
         draw(terminal, &app);
 
+        let timeout = app.get_timeout(config.sample_rate);
+
         // Handle UI events
-        loop {
-            select! {
-                recv(ui_events_rx) -> event => {
-                    match event.unwrap() {
-                        UIEvent::Key(key_event) => {
-                            match key_event.code {
-                                KeyCode::Char('q') => {
-                                    return Ok(());
-                                }
-                                KeyCode::Char('s') => {
-                                    break;
-                                }
-                                KeyCode::Char('l') => {
-                                    info!("Toggling logger on/off");
-                                    app.draw_logger = !app.draw_logger;
-                                }
-                                KeyCode::PageUp => {
-                                    app.logger_state.transition(&TuiWidgetEvent::PrevPageKey);
-                                    app.logger_scroll_mode = true;
-                                }
-                                KeyCode::PageDown => {
-                                    app.logger_state.transition(&TuiWidgetEvent::NextPageKey);
-                                    app.logger_scroll_mode = true;
-                                }
-                                KeyCode::Up => {
-                                    app.logger_state.transition(&TuiWidgetEvent::UpKey);
-                                }
-                                KeyCode::Down => {
-                                    app.logger_state.transition(&TuiWidgetEvent::DownKey);
-                                }
-                                KeyCode::Left => {
-                                    app.logger_state.transition(&TuiWidgetEvent::LeftKey);
-                                }
-                                KeyCode::Right => {
-                                    app.logger_state.transition(&TuiWidgetEvent::RightKey);
-                                }
-                                KeyCode::Esc => {
-                                    app.logger_state.transition(&TuiWidgetEvent::EscapeKey);
-                                    app.logger_scroll_mode = false;
-                                }
-                                KeyCode::Char(' ') => {
-                                    app.logger_state.transition(&TuiWidgetEvent::SpaceKey);
-                                }
-                                KeyCode::Char('+') => {
-                                    app.logger_state.transition(&TuiWidgetEvent::PlusKey);
-                                }
-                                KeyCode::Char('-') => {
-                                    app.logger_state.transition(&TuiWidgetEvent::MinusKey);
-                                }
-                                KeyCode::Char('h') => {
-                                    app.logger_state.transition(&TuiWidgetEvent::HideKey);
-                                }
-                                KeyCode::Char('f') => {
-                                    app.logger_state.transition(&TuiWidgetEvent::FocusKey);
-                                }
-                                _ => {}
-                            }
-                            debug!("{:?}", key_event);
-                            draw(terminal, &app);
-                        }
-                        UIEvent::Resize(_x, _y) => {
-                            draw(terminal, &app);
-                        }
+        select! {
+            recv(ui_events_rx) -> event => {
+                match handle_keyboard(event.unwrap(), &mut app) {
+                    KeyboardHandler::Quit => { break; },
+                    KeyboardHandler::None => {},
+                }
+            }
+            default(timeout) => {
+                // Check if we are using sample data and if so, check if we need to cycle the data back to the beginning
+                if app.use_sample_data {
+                    debug!("cycle: {}", cycle);
+                    if cycle
+                        == std::fs::read_dir(&deserializer::ACTIVE_PLAYER_JSON_SAMPLE)
+                            .unwrap()
+                            .count()
+                    {
+                        cycle = 0;
+                        app.gold = ui::gold::Gold::new();
+                        app.cs = ui::cs::CS::new();
+                        app.vs = ui::vs::VS::new();
                     }
                 }
-                default(Duration::from_secs(config.sample_rate)) => {
-                    break;
-                }
+
+                // Deserialize data from Riot API into Data struct
+                let data = &deserializer::deserializer(&app, &client, cycle)
+                    .await
+                    .unwrap();
+
+                // If app is on the first cycle, reset the datasets
+
+                // Set burst_table to a new BurstTable
+                let burst_table = BurstTable {
+                    champion: &champion,
+                    data,
+                    data_dragon_data: &data_dragon_champions,
+                    rotation: &config.rotation,
+                };
+
+                // Update app.burst_table_items to the correct Vec<Vec<String>>
+                app.burst_table_items = BurstTable::build_burst_table_items(burst_table);
+
+                app.on_tick(
+                    data.game_data.game_time,
+                    data.active_player_data.current_gold,
+                    data.all_player_data.all_players[player_index]
+                        .scores
+                        .creep_score,
+                    data.all_player_data.all_players[player_index]
+                        .scores
+                        .ward_score,
+                );
+
+                app.burst_last = app
+                    .burst_table_items
+                    .iter()
+                    .map(|x| x.last().unwrap().clone())
+                    .collect::<Vec<_>>();
+
+                cycle += 1;
             }
         }
 
-        app.burst_last = app
-            .burst_table_items
-            .iter()
-            .map(|x| x.last().unwrap().clone())
-            .collect::<Vec<_>>();
-
-        cycle += 1;
+        app.check_elapsed_time(config.sample_rate);
 
         info!("cycle took: {:?}", time.elapsed());
     }
+    Ok(())
 }
 
 fn draw<B: Backend>(terminal: &mut Terminal<B>, app: &App) {
@@ -273,7 +228,7 @@ fn draw<B: Backend>(terminal: &mut Terminal<B>, app: &App) {
         .unwrap();
 }
 
-enum UIEvent {
+pub enum UIEvent {
     Key(event::KeyEvent),
     Resize(u16, u16),
 }
@@ -299,49 +254,6 @@ fn setup_ui_events() -> Receiver<UIEvent> {
     });
 
     rx
-}
-
-pub struct Bounds {
-    pub gold_labels: ([String; 3], [String; 5]),
-    pub cs_labels: ([String; 3], [String; 5]),
-    pub vs_labels: ([String; 3], [String; 5]),
-}
-
-impl Bounds {
-    pub fn new() -> Bounds {
-        Bounds {
-            gold_labels: (
-                ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
-                [
-                    0.0.to_string(),
-                    150.0.to_string(),
-                    300.0.to_string(),
-                    450.0.to_string(),
-                    600.0.to_string(),
-                ],
-            ),
-            cs_labels: (
-                ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
-                [
-                    0.0.to_string(),
-                    3.0.to_string(),
-                    6.0.to_string(),
-                    9.0.to_string(),
-                    12.0.to_string(),
-                ],
-            ),
-            vs_labels: (
-                ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
-                [
-                    0.0.to_string(),
-                    0.5.to_string(),
-                    1.0.to_string(),
-                    1.5.to_string(),
-                    2.0.to_string(),
-                ],
-            ),
-        }
-    }
 }
 
 fn get_dataset_length(config: &Config) -> usize {
