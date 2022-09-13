@@ -62,8 +62,8 @@ impl Gold {
         self.x_axis_bounds = [*x_front, *x_back];
     }
 
-    pub fn reset_datasets(&mut self, config: &Config, data: &Data) {
-        self.gold_per_min_vecdeque = self.reset_vecdeque_dataset(config, data);
+    pub fn reset_dataset(&mut self, config: &Config, game_time: f64) {
+        self.gold_per_min_vecdeque = self.reset_vecdeque_dataset(config, game_time);
     }
 
     fn update_datasets(&mut self, game_time: f64) {

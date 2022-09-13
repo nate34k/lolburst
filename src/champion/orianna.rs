@@ -1,4 +1,4 @@
-use crate::{active_player, dmg, AbilityRanks};
+use crate::{active_player, data::ActivePlayer, dmg, AbilityRanks};
 
 use super::{CalculateDamageStruct, CalculateDamageTrait};
 
@@ -18,7 +18,7 @@ impl Orianna<'_> {
 
     pub fn calculate_rd(
         &self,
-        active_player: &active_player::Root,
+        active_player: &ActivePlayer,
         abilityranks: &AbilityRanks,
     ) -> RawDamage {
         let q_rank = abilityranks.q_rank;

@@ -18,6 +18,7 @@ pub mod cs;
 pub mod gold;
 pub mod vs;
 
+// TODO: refactor this mess
 pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     // Define a block ui element with a border and a title
     let block = Block::default().borders(Borders::ALL).title("lolburst");

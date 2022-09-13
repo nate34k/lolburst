@@ -1,5 +1,8 @@
 use super::teams::OpponantTeam;
-use crate::{active_player, all_players};
+use crate::{
+    active_player, all_players,
+    data::{ActivePlayer, AllPlayer},
+};
 use serde_json::Value;
 
 pub struct OpponantResistances {
@@ -9,8 +12,8 @@ pub struct OpponantResistances {
 
 impl<'a> OpponantResistances {
     pub fn new(
-        active_player: &'a active_player::Root,
-        all_players: &'a all_players::Root,
+        active_player: &'a ActivePlayer,
+        all_players: &'a Vec<AllPlayer>,
         ddragon_champions: &'a Value,
     ) -> Self {
         OpponantResistances {
@@ -31,8 +34,8 @@ struct Armor<'a> {
 
 impl<'a> Armor<'a> {
     fn new(
-        active_player: &'a active_player::Root,
-        all_players: &'a all_players::Root,
+        active_player: &'a ActivePlayer,
+        all_players: &'a Vec<AllPlayer>,
         ddragon_champions: &'a Value,
     ) -> Self {
         Armor {
@@ -61,16 +64,16 @@ impl<'a> Armor<'a> {
 }
 
 pub struct MagicResist<'a> {
-    pub active_player: &'a active_player::Root,
-    pub all_players: &'a all_players::Root,
+    pub active_player: &'a ActivePlayer,
+    pub all_players: &'a Vec<AllPlayer>,
     pub opponant_team: OpponantTeam,
     pub ddragon_champions: &'a Value,
 }
 
 impl<'a> MagicResist<'a> {
     pub fn new(
-        active_player: &'a active_player::Root,
-        all_players: &'a all_players::Root,
+        active_player: &'a ActivePlayer,
+        all_players: &'a Vec<AllPlayer>,
         ddragon_champions: &'a Value,
     ) -> Self {
         MagicResist {

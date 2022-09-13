@@ -80,6 +80,12 @@ impl App {
             .checked_sub(self.last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_millis(0))
     }
+
+    fn reset_datasets(&mut self, config: &Config, game_time: f64) {
+        self.gold.reset_dataset(config, game_time);
+        self.cs.reset_dataset(config, game_time);
+        self.vs.reset_dataset(config, game_time);
+    }
 }
 
 pub struct Data {
@@ -120,14 +126,25 @@ pub async fn run_app<B: Backend>(
         let data = deserializer::deserializer(&app, &client, cycle).await;
         match data {
             Ok(data) => {
-                let (i, _, c) =
-                    teams::get_active_player(&data.active_player_data, &data.all_player_data);
-                player_index = i;
-                champion = champion::Champion::new(c.as_str());
-                app.gold.reset_datasets(config, &data);
-                app.cs.reset_datasets(config, &data);
-                app.vs.reset_datasets(config, &data);
-                break;
+                match data.http_status {
+                    Some(_) => {
+                        warn!("Warning, game not ready");
+                        info!("Retrying in 5 seconds...");
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                        cycle += 1;
+                        continue;
+                    }
+                    None => {
+                        let (i, _, c) = teams::get_active_player(
+                            &data.active_player.unwrap(),
+                            &data.all_players.unwrap(),
+                        );
+                        player_index = i;
+                        champion = champion::Champion::new(c.as_str());
+                        app.reset_datasets(config, data.game_data.unwrap().game_time);
+                        break;
+                    }
+                }
             }
             Err(err) => {
                 error!("Error: {}", err);
@@ -147,6 +164,12 @@ pub async fn run_app<B: Backend>(
 
         draw(terminal, &app);
 
+        app.burst_last = app
+            .burst_table_items
+            .iter()
+            .map(|x| x.last().unwrap().clone())
+            .collect::<Vec<_>>();
+
         let timeout = app.get_timeout(config.sample_rate);
 
         // Handle UI events
@@ -162,9 +185,7 @@ pub async fn run_app<B: Backend>(
                 if app.use_sample_data {
                     debug!("cycle: {}", cycle);
                     if cycle
-                        == std::fs::read_dir(&deserializer::ACTIVE_PLAYER_JSON_SAMPLE)
-                            .unwrap()
-                            .count()
+                        == 6000
                     {
                         cycle = 0;
                         app.gold = ui::gold::Gold::new();
@@ -178,7 +199,12 @@ pub async fn run_app<B: Backend>(
                     .await
                     .unwrap();
 
+                info!("CS: {}", data.all_players.as_ref().unwrap()[player_index].scores.creep_score);
+
                 // If app is on the first cycle, reset the datasets
+                if cycle == 0 {
+                    app.reset_datasets(config, data.game_data.as_ref().unwrap().game_time);
+                }
 
                 // Set burst_table to a new BurstTable
                 let burst_table = BurstTable {
@@ -192,21 +218,15 @@ pub async fn run_app<B: Backend>(
                 app.burst_table_items = BurstTable::build_burst_table_items(burst_table);
 
                 app.on_tick(
-                    data.game_data.game_time,
-                    data.active_player_data.current_gold,
-                    data.all_player_data.all_players[player_index]
+                    data.game_data.as_ref().unwrap().game_time,
+                    data.active_player.as_ref().unwrap().current_gold,
+                    data.all_players.as_ref().unwrap()[player_index]
                         .scores
                         .creep_score,
-                    data.all_player_data.all_players[player_index]
+                    data.all_players.as_ref().unwrap()[player_index]
                         .scores
                         .ward_score,
                 );
-
-                app.burst_last = app
-                    .burst_table_items
-                    .iter()
-                    .map(|x| x.last().unwrap().clone())
-                    .collect::<Vec<_>>();
 
                 cycle += 1;
             }
@@ -261,7 +281,7 @@ fn get_dataset_length(config: &Config) -> usize {
 }
 
 pub trait Stats {
-    fn reset_vecdeque_dataset(&self, config: &Config, data: &Data) -> SliceDeque<(f64, f64)> {
+    fn reset_vecdeque_dataset(&self, config: &Config, game_time: f64) -> SliceDeque<(f64, f64)> {
         // Set offset to sample rate and divide by 1000 to get sapmle rate in seconds
         // Offset is used to determine how far back in time the graph should start
         let offset = config.sample_rate as usize;
@@ -270,7 +290,7 @@ pub trait Stats {
         let reversed_vecdeque_with_offset = || -> SliceDeque<(f64, f64)> {
             let mut x = SliceDeque::new();
             for i in 0..get_dataset_length(config) {
-                x.push_back(((data.game_data.game_time - (offset * i) as f64), 0.0));
+                x.push_back(((game_time - (offset * i) as f64), 0.0));
             }
             x.into_iter().rev().collect()
         };

@@ -4,13 +4,14 @@ use crate::{
     active_player::AbilityRanks,
     app,
     champion::{self, CalculateDamageTrait, Champion},
+    data::LiveGame,
     dmg,
     utils::{resistance, teams},
 };
 
 pub struct BurstTable<'a> {
     pub champion: &'a Champion<'a>,
-    pub data: &'a app::Data,
+    pub data: &'a LiveGame,
     pub data_dragon_data: &'a Value,
     pub rotation: &'a str,
 }
@@ -21,24 +22,54 @@ impl BurstTable<'_> {
         // Set ability_ranks to new AbilityRanks
         // Used to calculate burst damage
         let ability_ranks = AbilityRanks::new(
-            self.data.active_player_data.abilities.q.ability_level,
-            self.data.active_player_data.abilities.w.ability_level,
-            self.data.active_player_data.abilities.e.ability_level,
-            self.data.active_player_data.abilities.r.ability_level,
+            self.data
+                .active_player
+                .as_ref()
+                .unwrap()
+                .abilities
+                .q
+                .ability_level
+                .unwrap(),
+            self.data
+                .active_player
+                .as_ref()
+                .unwrap()
+                .abilities
+                .w
+                .ability_level
+                .unwrap(),
+            self.data
+                .active_player
+                .as_ref()
+                .unwrap()
+                .abilities
+                .e
+                .ability_level
+                .unwrap(),
+            self.data
+                .active_player
+                .as_ref()
+                .unwrap()
+                .abilities
+                .r
+                .ability_level
+                .unwrap(),
         );
 
         // Set opponance_resistances to new OpponantResistances
         // Used to calculate burst damage
         let opponant_resistances = resistance::OpponantResistances::new(
-            &self.data.active_player_data,
-            &self.data.all_player_data,
+            &self.data.active_player.as_ref().unwrap(),
+            &self.data.all_players.as_ref().unwrap(),
             self.data_dragon_data,
         );
 
         // Set opponent_team to new OpponentTeam
         // Used to format the burst table
-        let opponant_team =
-            teams::OpponantTeam::new(&self.data.active_player_data, &self.data.all_player_data);
+        let opponant_team = teams::OpponantTeam::new(
+            &self.data.active_player.as_ref().unwrap(),
+            &self.data.all_players.as_ref().unwrap(),
+        );
 
         // Set ret as a Vec<Vec<String>>
         // This is the data type that the table widget expects
@@ -61,7 +92,7 @@ impl BurstTable<'_> {
             let burst_dmg = self
                 .champion
                 .calculate_damage(champion::CalculateDamageStruct {
-                    active_player: &self.data.active_player_data,
+                    active_player: &self.data.active_player.as_ref().unwrap(),
                     ability_ranks: &ability_ranks,
                     resistance: &r,
                     rotation: self.rotation,

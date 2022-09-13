@@ -1,5 +1,6 @@
 use crate::{
     active_player::{self, AbilityRanks},
+    data::ActivePlayer,
     dmg,
 };
 
@@ -13,7 +14,7 @@ pub enum Champion<'a> {
     None,
 }
 pub struct CalculateDamageStruct<'a> {
-    pub active_player: &'a active_player::Root,
+    pub active_player: &'a ActivePlayer,
     pub ability_ranks: &'a AbilityRanks,
     pub rotation: &'a str,
     pub resistance: &'a dmg::Resistance,

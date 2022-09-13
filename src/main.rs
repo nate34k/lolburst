@@ -2,6 +2,7 @@
 extern crate log;
 
 use active_player::AbilityRanks;
+use chrono::{DateTime, Utc};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -15,6 +16,7 @@ mod all_players;
 mod app;
 mod champion;
 mod config;
+mod data;
 mod dmg;
 mod game_data;
 mod handlers;
@@ -28,16 +30,10 @@ const DATA_DRAGON_URL: &str =
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set dt to DateTime<Local> for logging
-    let dt = chrono::offset::Local::now();
+    let dt = chrono::Utc::now();
 
-    // Initialization of the logger
-    // Create log file
-    let s = String::from("./logs/") + &dt.format("%Y-%m-%dT%H%M%S%.6f.log").to_string();
-    tui_logger::set_log_file((s).as_str())?;
-    // Set max_log_level to Trace
-    tui_logger::init_logger(log::LevelFilter::Debug).unwrap();
-    // Set default level for unknown targets to Trace
-    tui_logger::set_default_level(log::LevelFilter::Trace);
+    // Init logger
+    init_logger(&dt);
 
     // Load config
     let config = &config::setup_config();
@@ -65,6 +61,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn init_logger(dt: &DateTime<Utc>) {
+    // Create log file
+    let log_file = handlers::dir::create_log_file(&dt).unwrap();
+    // Set log file
+    tui_logger::set_log_file(log_file.as_str()).unwrap();
+    // Set max_log_level to Trace
+    tui_logger::init_logger(log::LevelFilter::Debug).unwrap();
+    // Set default level for unknown targets to Trace
+    tui_logger::set_default_level(log::LevelFilter::Trace);
 }
 
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>, std::io::Error> {

@@ -1,5 +1,6 @@
 use crate::{
     active_player::{self, AbilityRanks},
+    data::ActivePlayer,
     dmg,
 };
 
@@ -21,7 +22,7 @@ impl Ahri<'_> {
 
     pub fn calculate_rd(
         &self,
-        active_player: &active_player::Root,
+        active_player: &ActivePlayer,
         abilityranks: &AbilityRanks,
     ) -> RawDamage {
         let q_rank = abilityranks.q_rank;
