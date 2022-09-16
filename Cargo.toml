@@ -13,10 +13,12 @@ serde = { version = "1.0.140", features = ["derive"] }
 log = "0.4.17"
 dotenv = "0.15.0"
 tui = "0.18.0"
-crossterm = "0.24"
+crossterm = "0.24.0"
 tui-logger = "0.8.0"
 crossbeam = "0.8.2"
 chrono = "0.4.22"
 directories = "4.0.1"
 toml = "0.5.8"
 slice-deque = "0.3.0"
+process-memory = "0.4.0"
+winapi = { version = "0.3.9", features = ["tlhelp32"] }

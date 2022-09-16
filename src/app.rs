@@ -1,6 +1,6 @@
 use std::{
     io, thread,
-    time::{self, Duration, Instant},
+    time::{self, Duration, Instant}, convert::TryInto,
 };
 
 use crossbeam::{
@@ -13,6 +13,7 @@ use serde_json::Value;
 use slice_deque::SliceDeque;
 use tui::{backend::Backend, widgets::TableState, Terminal};
 use tui_logger::TuiWidgetState;
+use process_memory::*;
 
 use crate::{
     active_player::{self},
@@ -94,6 +95,69 @@ pub struct Data {
     pub game_data: game_data::Root,
 }
 
+pub fn get_pid(process_name: &str) -> process_memory::Pid {
+    /// A helper function to turn a c_char array to a String
+    fn utf8_to_string(bytes: &[i8]) -> String {
+        use std::ffi::CStr;
+        unsafe {
+            CStr::from_ptr(bytes.as_ptr())
+                .to_string_lossy()
+                .into_owned()
+        }
+    }
+    let mut entry = winapi::um::tlhelp32::PROCESSENTRY32 {
+        dwSize: std::mem::size_of::<winapi::um::tlhelp32::PROCESSENTRY32>() as u32,
+        cntUsage: 0,
+        th32ProcessID: 0,
+        th32DefaultHeapID: 0,
+        th32ModuleID: 0,
+        cntThreads: 0,
+        th32ParentProcessID: 0,
+        pcPriClassBase: 0,
+        dwFlags: 0,
+        szExeFile: [0; winapi::shared::minwindef::MAX_PATH],
+    };
+    let snapshot: winapi::um::winnt::HANDLE;
+    unsafe {
+        snapshot = winapi::um::tlhelp32::CreateToolhelp32Snapshot(
+            winapi::um::tlhelp32::TH32CS_SNAPPROCESS,
+            0,
+        );
+        if winapi::um::tlhelp32::Process32First(snapshot, &mut entry)
+            == winapi::shared::minwindef::TRUE
+        {
+            while winapi::um::tlhelp32::Process32Next(snapshot, &mut entry)
+                == winapi::shared::minwindef::TRUE
+            {
+                if utf8_to_string(&entry.szExeFile) == process_name {
+                    return entry.th32ProcessID;
+                }
+            }
+        }
+    }
+    0
+}
+
+const PROCESS_NAME: &str = "League of Legends.exe";
+const MZ_POINTER: usize = 0x_45_00_00;
+const LOCAL_PLAYER_OFFSET: usize = 0x_3_14_15_54;
+const CREEP_SCORE_OFFSET: i32 = 0x_3B_D4;
+
+fn get_value() {
+    // We need to make sure that we get a handle to a process
+    let handle: ProcessHandle = get_pid(PROCESS_NAME).try_into_process_handle().unwrap().set_arch(Architecture::Arch32Bit);
+    info!("Arch: {:?}", handle.1);
+    // We make a `DataMember`
+    let mut member = DataMember::<i32>::new(handle);
+
+    member.set_offset(vec![MZ_POINTER + LOCAL_PLAYER_OFFSET]);
+    let offset = member.read().unwrap() + CREEP_SCORE_OFFSET;
+    member.set_offset(vec![offset as usize]);
+
+    info!("Memory location: {:#01x}", member.get_offset().unwrap());
+    info!("Creep Score: {}", member.read().unwrap());
+}
+
 pub async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
@@ -102,10 +166,7 @@ pub async fn run_app<B: Backend>(
     // Build a client
     let client: Client = network::build_client().await;
 
-    // Check if we are using sample data
-    if app.use_sample_data {
-        warn!("use_sample_data is true, using JSON files in resources directory");
-    }
+    get_value();
 
     // Deserialize the Data Dragon into serde_json::Value
     let data_dragon_champions: Value = serde_json::from_str(
