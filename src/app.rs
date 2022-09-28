@@ -1,6 +1,6 @@
 use std::{
     io, thread,
-    time::{self, Duration, Instant}, convert::TryInto,
+    time::{self, Duration, Instant},
 };
 
 use crossbeam::{
@@ -8,19 +8,17 @@ use crossbeam::{
     select,
 };
 use crossterm::event::{self, Event, KeyCode};
+use process_memory::*;
 use reqwest::Client;
 use serde_json::Value;
 use slice_deque::SliceDeque;
+use sysinfo::{RefreshKind, ProcessRefreshKind, System, SystemExt, ProcessExt, PidExt};
 use tui::{backend::Backend, widgets::TableState, Terminal};
 use tui_logger::TuiWidgetState;
-use process_memory::*;
 
 use crate::{
-    active_player::{self},
-    all_players,
     champion::{self, Champion},
     config::Config,
-    game_data,
     handlers::keyboard::{handle_keyboard, KeyboardHandler},
     network, ui,
     ui::burst_table::BurstTable,
@@ -89,22 +87,34 @@ impl App {
     }
 }
 
-pub struct Data {
-    pub active_player_data: active_player::Root,
-    pub all_player_data: all_players::Root,
-    pub game_data: game_data::Root,
-}
+// pub fn get_pid(process_name: &str) -> process_memory::Pid {
+//     let r = RefreshKind::new().with_processes(ProcessRefreshKind::new());
 
-pub fn get_pid(process_name: &str) -> process_memory::Pid {
-    /// A helper function to turn a c_char array to a String
+//     let sys = System::new_with_specifics(r);
+
+//     for (pid, proc) in sys.processes() {
+//         if proc.name() == process_name {
+//             println!("Found process: {} with pid: {}", proc.name(), pid);
+//             return pid.as_u32();
+//         }
+//     }
+//     0
+// }
+
+// This needs to be refactored and moved to a separate file
+pub fn get_pid(process_name: &str) -> (process_memory::Pid, usize) {
+    // A helper function to turn a c_char array to a String
     fn utf8_to_string(bytes: &[i8]) -> String {
         use std::ffi::CStr;
         unsafe {
+            // Convert the c_char array to a CStr and then to a String
             CStr::from_ptr(bytes.as_ptr())
                 .to_string_lossy()
                 .into_owned()
         }
     }
+
+    // Define entry to be a PROCESSENTRY32 struct
     let mut entry = winapi::um::tlhelp32::PROCESSENTRY32 {
         dwSize: std::mem::size_of::<winapi::um::tlhelp32::PROCESSENTRY32>() as u32,
         cntUsage: 0,
@@ -117,42 +127,119 @@ pub fn get_pid(process_name: &str) -> process_memory::Pid {
         dwFlags: 0,
         szExeFile: [0; winapi::shared::minwindef::MAX_PATH],
     };
+
+    // Define snapshot to be a HANDLE
     let snapshot: winapi::um::winnt::HANDLE;
+
+    // Define pid to be a DWORD and set it to 0
+    let mut pid: u32 = 0;
+
+    // Define base_addr to be a usize and set it to 0
+    let mut base_addr: usize = 0;
+
+    // Scary unsafe code to get the pid of the process defined in process_name
     unsafe {
+        // Create a snapshot of all processes
         snapshot = winapi::um::tlhelp32::CreateToolhelp32Snapshot(
             winapi::um::tlhelp32::TH32CS_SNAPPROCESS,
             0,
         );
+
+        // Check if the snapshot was created successfully
         if winapi::um::tlhelp32::Process32First(snapshot, &mut entry)
             == winapi::shared::minwindef::TRUE
         {
+            // Loop through all processes
             while winapi::um::tlhelp32::Process32Next(snapshot, &mut entry)
                 == winapi::shared::minwindef::TRUE
             {
+                // Check if the process name matches the process name we are looking for
                 if utf8_to_string(&entry.szExeFile) == process_name {
-                    return entry.th32ProcessID;
+                    // Set the pid to the pid of the process we are looking for and stop
+                    // looping through processes
+                    pid = entry.th32ProcessID;
+                    break;
                 }
             }
         }
     }
-    0
+
+    // Define entry to be a MODULEENTRY32 struct
+    let mut entry = winapi::um::tlhelp32::MODULEENTRY32 {
+        dwSize: std::mem::size_of::<winapi::um::tlhelp32::MODULEENTRY32>() as u32,
+        th32ModuleID: 0,
+        th32ProcessID: 0,
+        GlblcntUsage: 0,
+        ProccntUsage: 0,
+        modBaseAddr: std::ptr::null_mut(),
+        modBaseSize: 0,
+        hModule: std::ptr::null_mut(),
+        szModule: [0; winapi::um::tlhelp32::MAX_MODULE_NAME32 + 1],
+        szExePath: [0; winapi::shared::minwindef::MAX_PATH],
+    };
+
+    // Define snapshot to be a HANDLE
+    let snapshot: winapi::um::winnt::HANDLE;
+
+    // Scary unsafe code to get the base address of the processes main module as defined 
+    // in process_name, this is the address of the .exe file
+    unsafe {
+        // Create a snapshot of all modules in the process
+        snapshot = winapi::um::tlhelp32::CreateToolhelp32Snapshot(
+            winapi::um::tlhelp32::TH32CS_SNAPMODULE,
+            pid,
+        );
+        // Check if the snapshot was created successfully
+        if winapi::um::tlhelp32::Module32First(snapshot, &mut entry) 
+            == winapi::shared::minwindef::TRUE
+        {   
+            // Check if the first module is the main module (it should be)
+            if utf8_to_string(&entry.szModule) == process_name {
+                // Set the base_addr to the base address of the main module
+                base_addr = entry.modBaseAddr as usize;
+            }
+            while winapi::um::tlhelp32::Module32Next(snapshot, &mut entry)
+                == winapi::shared::minwindef::TRUE
+            {
+                // Check if the module name matches the process name we are looking for
+                if utf8_to_string(&entry.szModule) == process_name {
+                    // Set the base_addr to the base address of the module we are
+                    // looking for
+                    base_addr = entry.modBaseAddr as usize;
+                }
+            }
+        }
+    }
+    info!("pid: {}", pid);
+    info!("base_addr: {:#01x}", base_addr);
+
+    // Return the pid and base address of the process
+    (pid, base_addr)
 }
 
 const PROCESS_NAME: &str = "League of Legends.exe";
-const MZ_POINTER: usize = 0x_45_00_00;
 const LOCAL_PLAYER_OFFSET: usize = 0x_3_14_15_54;
-const CREEP_SCORE_OFFSET: i32 = 0x_3B_D4;
+const CREEP_SCORE_OFFSET: usize = 0x_3B_D4;
 
+// This needs to be refactored and moved to a separate file
+// This function was made as a proof of concept to see if we could read the
+// memory of a process given some known memory offsets
 fn get_value() {
     // We need to make sure that we get a handle to a process
-    let handle: ProcessHandle = get_pid(PROCESS_NAME).try_into_process_handle().unwrap().set_arch(Architecture::Arch32Bit);
+    let (pid, base_addr) = get_pid(PROCESS_NAME);
+    let handle: ProcessHandle = pid
+        .try_into_process_handle()
+        .unwrap()
+        .set_arch(Architecture::Arch32Bit);
     info!("Arch: {:?}", handle.1);
     // We make a `DataMember`
     let mut member = DataMember::<i32>::new(handle);
 
-    member.set_offset(vec![MZ_POINTER + LOCAL_PLAYER_OFFSET]);
-    let offset = member.read().unwrap() + CREEP_SCORE_OFFSET;
-    member.set_offset(vec![offset as usize]);
+    member.set_offset(vec![base_addr + LOCAL_PLAYER_OFFSET]);
+    // println!("Offset: {:#01x}", member.read().unwrap());
+    let offset = member.read().unwrap() as usize + CREEP_SCORE_OFFSET;
+    info!("New Offset: {:#01x}", offset);
+    member.set_offset(vec![offset]);
 
     info!("Memory location: {:#01x}", member.get_offset().unwrap());
     info!("Creep Score: {}", member.read().unwrap());
@@ -165,8 +252,6 @@ pub async fn run_app<B: Backend>(
 ) -> io::Result<()> {
     // Build a client
     let client: Client = network::build_client().await;
-
-    get_value();
 
     // Deserialize the Data Dragon into serde_json::Value
     let data_dragon_champions: Value = serde_json::from_str(
@@ -182,39 +267,58 @@ pub async fn run_app<B: Backend>(
     let player_index: usize;
     let mut cycle: usize = 0;
 
+    println!("Waiting for League of Legends to start...");
     // Check if game is ready
     loop {
-        let data = deserializer::deserializer(&app, &client, cycle).await;
-        match data {
-            Ok(data) => {
-                match data.http_status {
-                    Some(_) => {
-                        warn!("Warning, game not ready");
-                        info!("Retrying in 5 seconds...");
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                        cycle += 1;
-                        continue;
-                    }
-                    None => {
-                        let (i, _, c) = teams::get_active_player(
-                            &data.active_player.unwrap(),
-                            &data.all_players.unwrap(),
-                        );
-                        player_index = i;
-                        champion = champion::Champion::new(c.as_str());
-                        app.reset_datasets(config, data.game_data.unwrap().game_time);
-                        break;
-                    }
-                }
-            }
-            Err(err) => {
-                error!("Error: {}", err);
-                info!("Retrying in 5 seconds...");
-                tokio::time::sleep(Duration::from_secs(5)).await;
-                continue;
-            }
+        fn sleep(msg: &str, d: u64) {
+            warn!("{}", msg);
+            println!("{}", msg);
+            thread::sleep(Duration::from_secs(d));
         }
+
+        println!("Waiting for League of Legends to start...");
+        let data = deserializer::deserializer(&app, &client, cycle).await;
+        println!("Waiting for League of Legends to start...");
+        // Guard clause to check if the game is ready
+        //
+        // If the game is not ready, we will wait for 5 seconds and try again
+        //
+        // This check is done because Riot API will send bogus data during the 
+        // loading screen, so we wait until we have data in the events vec before 
+        // continuing on with the main loop
+        if let Err(_) = data {
+            sleep("Error deserializing data, retrying in 5 seconds...", 5);
+            continue;
+        } else if let None = data.as_ref().unwrap().events {
+            sleep("Game is not ready, retrying in 5 seconds...", 5);
+            continue;
+        } else if let true = data
+            .as_ref()
+            .unwrap()
+            .events
+            .as_ref()
+            .unwrap()
+            .events
+            .is_empty()
+        {
+            sleep("Game is not ready, retrying in 5 seconds...", 5);
+            continue;
+        }
+
+        println!("Game is ready!");
+
+        let data = data.unwrap();
+
+        let (i, _, c) =
+            teams::get_active_player(&data.active_player.unwrap(), &data.all_players.unwrap());
+        player_index = i;
+        champion = champion::Champion::new(c.as_str());
+        app.reset_datasets(config, data.game_data.unwrap().game_time);
+        break;
     }
+
+    get_value();
+    terminal.clear().unwrap();
 
     // Spawn threads to handle additional tasks
     let ui_events_rx = setup_ui_events();

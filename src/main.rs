@@ -41,6 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Setup terminal
     let mut terminal = setup_terminal()?;
 
+    println!("Loading data...");
+
     // Initialize app
     // Create app
     let app = app::App::new(config);

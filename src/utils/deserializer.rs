@@ -13,7 +13,7 @@ const ALL_PLAYERS_URL: &str = "https://127.0.0.1:2999/liveclientdata/playerlist"
 const GAME_STATS_JSON_SAMPLE: &str = "./resources/game_data/game_data";
 const GAME_STATS_URL: &str = "https://127.0.0.1:2999/liveclientdata/gamestats";
 const ALL_DATA_JSON_SAMPLE: &str = "./resources/all_data/all_data_";
-
+const ALL_DATA_URL: &str = "https://127.0.0.1:2999/liveclientdata/allgamedata";
 // #[derive(Debug, serde::Deserialize)]
 // pub struct Deserialize {}
 
@@ -56,7 +56,7 @@ pub async fn deserializer(
         // );
     } else {
         data = serde_json::from_str(
-            &network::request(client, ACTIVE_PLAYER_URL)
+            &network::request(client, ALL_DATA_URL)
                 .await
                 .text()
                 .await

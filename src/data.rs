@@ -166,7 +166,7 @@ pub struct SummonerSpells {
 #[serde(rename_all = "camelCase")]
 pub struct Events {
     #[serde(rename = "Events")]
-    pub events: Option<Vec<Event>>,
+    pub events: Vec<Event>,
 }
 
 #[derive(Serialize, Deserialize)]

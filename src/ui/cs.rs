@@ -1,7 +1,7 @@
 use slice_deque::SliceDeque;
 
 use crate::{
-    app::{Data, Stats},
+    app::{Stats},
     config::Config,
 };
 
