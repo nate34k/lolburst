@@ -1,7 +1,8 @@
 use std::{
     io, thread,
-    time::{self, Duration, Instant},
+    time::{self, Duration, Instant}, sync::{Arc, atomic::Ordering},
 };
+use std::sync::atomic::AtomicBool;
 
 use crossbeam::{
     channel::{unbounded, Receiver},
@@ -22,7 +23,7 @@ use crate::{
     handlers::keyboard::{handle_keyboard, KeyboardHandler},
     network, ui,
     ui::burst_table::BurstTable,
-    utils::{deserializer, teams},
+    utils::{deserializer, teams}, data::LiveGame,
 };
 
 pub struct App {
@@ -253,6 +254,11 @@ pub async fn run_app<B: Backend>(
     // Build a client
     let client: Client = network::build_client().await;
 
+    let terminate = Arc::new(AtomicBool::new(false));
+
+    // Spawn threads to handle additional tasks
+    let ui_events_rx = setup_ui_events(terminate.clone());
+
     // Deserialize the Data Dragon into serde_json::Value
     let data_dragon_champions: Value = serde_json::from_str(
         &network::request(&client, crate::DATA_DRAGON_URL)
@@ -268,6 +274,7 @@ pub async fn run_app<B: Backend>(
     let mut cycle: usize = 0;
 
     println!("Waiting for League of Legends to start...");
+
     // Check if game is ready
     loop {
         fn sleep(msg: &str, d: u64) {
@@ -277,8 +284,23 @@ pub async fn run_app<B: Backend>(
         }
 
         println!("Waiting for League of Legends to start...");
-        let data = deserializer::deserializer(&app, &client, cycle).await;
-        println!("Waiting for League of Legends to start...");
+
+        if terminate.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        let data: Result<LiveGame, serde_json::Error>;
+        tokio::select! {
+            d = deserializer::deserializer(&app, &client, cycle) => {
+                data = d;
+            }
+            _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                continue;
+            }
+        }
+
+        //let data = deserializer::deserializer(&app, &client, cycle).await;
+        
         // Guard clause to check if the game is ready
         //
         // If the game is not ready, we will wait for 5 seconds and try again
@@ -317,11 +339,10 @@ pub async fn run_app<B: Backend>(
         break;
     }
 
-    get_value();
+    // get_value();
     terminal.clear().unwrap();
 
-    // Spawn threads to handle additional tasks
-    let ui_events_rx = setup_ui_events();
+    
 
     // Applicaiton loop
     loop {
@@ -418,7 +439,7 @@ pub enum UIEvent {
     Resize(u16, u16),
 }
 
-fn setup_ui_events() -> Receiver<UIEvent> {
+fn setup_ui_events(terminate: Arc<AtomicBool>) -> Receiver<UIEvent> {
     let (tx, rx) = unbounded();
     thread::spawn(move || loop {
         let event = event::read().unwrap();
@@ -433,6 +454,7 @@ fn setup_ui_events() -> Receiver<UIEvent> {
         }
         if let Event::Key(key_event) = event {
             if let KeyCode::Char('q') = key_event.code {
+                terminate.store(true, Ordering::Relaxed);
                 break;
             }
         }
