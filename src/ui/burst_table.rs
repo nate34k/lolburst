@@ -2,7 +2,6 @@ use serde_json::Value;
 
 use crate::{
     active_player::AbilityRanks,
-    app,
     champion::{self, CalculateDamageTrait, Champion},
     data::LiveGame,
     dmg,

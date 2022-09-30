@@ -1,5 +1,5 @@
 use crate::{
-    active_player::{self, AbilityRanks},
+    active_player::{AbilityRanks},
     data::ActivePlayer,
     dmg,
 };

@@ -13,7 +13,6 @@ use process_memory::*;
 use reqwest::Client;
 use serde_json::Value;
 use slice_deque::SliceDeque;
-use sysinfo::{RefreshKind, ProcessRefreshKind, System, SystemExt, ProcessExt, PidExt};
 use tui::{backend::Backend, widgets::TableState, Terminal};
 use tui_logger::TuiWidgetState;
 
@@ -23,7 +22,7 @@ use crate::{
     handlers::keyboard::{handle_keyboard, KeyboardHandler},
     network, ui,
     ui::burst_table::BurstTable,
-    utils::{deserializer, teams}, data::LiveGame,
+    utils::{deserializer::{self, deserializer}, teams}, data::LiveGame,
 };
 
 pub struct App {
@@ -55,9 +54,9 @@ impl App {
             logger_state: TuiWidgetState::default(),
             draw_logger: false,
             logger_scroll_mode: false,
-            gold: ui::gold::Gold::new(),
-            cs: ui::cs::CS::new(),
-            vs: ui::vs::VS::new(),
+            gold: ui::gold::Gold::new(c),
+            cs: ui::cs::CS::new(c),
+            vs: ui::vs::VS::new(c),
             last_tick: time::Instant::now(),
             use_sample_data: c.use_sample_data,
         }
@@ -273,71 +272,26 @@ pub async fn run_app<B: Backend>(
     let player_index: usize;
     let mut cycle: usize = 0;
 
-    println!("Waiting for League of Legends to start...");
-
-    // Check if game is ready
-    loop {
-        fn sleep(msg: &str, d: u64) {
-            warn!("{}", msg);
-            println!("{}", msg);
-            thread::sleep(Duration::from_secs(d));
-        }
-
-        println!("Waiting for League of Legends to start...");
-
-        if terminate.load(Ordering::Relaxed) {
+    // Check if game is ready or bail if user presses q
+    // This select! macro is to allow the user to quit the program if they need to before the game
+    // starts, as check_game_ready will block until the game is ready
+    tokio::select! {
+        biased;
+        c = check_game_ready(&app, &client, cycle, terminate.clone()) => {
+            cycle = c;
+        },
+        true = should_terminate(terminate.clone()) => {
             return Ok(());
-        }
-
-        let data: Result<LiveGame, serde_json::Error>;
-        tokio::select! {
-            d = deserializer::deserializer(&app, &client, cycle) => {
-                data = d;
-            }
-            _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                continue;
-            }
-        }
-
-        //let data = deserializer::deserializer(&app, &client, cycle).await;
-        
-        // Guard clause to check if the game is ready
-        //
-        // If the game is not ready, we will wait for 5 seconds and try again
-        //
-        // This check is done because Riot API will send bogus data during the 
-        // loading screen, so we wait until we have data in the events vec before 
-        // continuing on with the main loop
-        if let Err(_) = data {
-            sleep("Error deserializing data, retrying in 5 seconds...", 5);
-            continue;
-        } else if let None = data.as_ref().unwrap().events {
-            sleep("Game is not ready, retrying in 5 seconds...", 5);
-            continue;
-        } else if let true = data
-            .as_ref()
-            .unwrap()
-            .events
-            .as_ref()
-            .unwrap()
-            .events
-            .is_empty()
-        {
-            sleep("Game is not ready, retrying in 5 seconds...", 5);
-            continue;
-        }
-
-        println!("Game is ready!");
-
-        let data = data.unwrap();
-
-        let (i, _, c) =
-            teams::get_active_player(&data.active_player.unwrap(), &data.all_players.unwrap());
-        player_index = i;
-        champion = champion::Champion::new(c.as_str());
-        app.reset_datasets(config, data.game_data.unwrap().game_time);
-        break;
+        },
     }
+
+    let data = deserializer(&app, &client, cycle).await.unwrap();
+
+    let (i, _, c) =
+        teams::get_active_player(&data.active_player.unwrap(), &data.all_players.unwrap());
+    player_index = i;
+    champion = champion::Champion::new(c.as_str());
+    app.reset_datasets(config, data.game_data.unwrap().game_time);
 
     // get_value();
     terminal.clear().unwrap();
@@ -374,9 +328,9 @@ pub async fn run_app<B: Backend>(
                         == 6000
                     {
                         cycle = 0;
-                        app.gold = ui::gold::Gold::new();
-                        app.cs = ui::cs::CS::new();
-                        app.vs = ui::vs::VS::new();
+                        app.gold = ui::gold::Gold::new(config);
+                        app.cs = ui::cs::CS::new(config);
+                        app.vs = ui::vs::VS::new(config);
                     }
                 }
 
@@ -491,4 +445,59 @@ pub trait Stats {
     }
 
     fn string_from_per_min(&self) -> String;
+}
+
+async fn check_game_ready(app: &App, client: &Client, mut cycle: usize, terminate: Arc<AtomicBool>) -> usize {
+
+    println!("Waiting for League of Legends to start...");
+
+    let mut data: Result<LiveGame, serde_json::Error>;
+
+    loop {
+        // Check if we should bail
+        if terminate.load(Ordering::Relaxed) {
+            break;
+        }
+
+        data = deserializer::deserializer(app, client, cycle).await;
+        cycle += 1;
+        //let data = deserializer::deserializer(&app, &client, cycle).await;
+        
+        // Guard clause to check if the game is ready
+        //
+        // If the game is not ready, we will wait for 5 seconds and try again
+        //
+        // This check is done because Riot API will send bogus data during the 
+        // loading screen, so we wait until we have data in the events vec before 
+        // continuing on with the main loop
+        if data.is_err() {
+            thread::sleep(Duration::from_secs(1));
+            println!("Waiting for League of Legends to start...");
+            continue;
+        } else if let None = data.as_ref().unwrap().events {
+            thread::sleep(Duration::from_secs(1));
+            println!("Waiting for League of Legends to start...");
+            continue;
+        } else if let true = data
+            .as_ref()
+            .unwrap()
+            .events
+            .as_ref()
+            .unwrap()
+            .events
+            .is_empty()
+        {
+            thread::sleep(Duration::from_secs(1));
+            println!("Waiting for League of Legends to start...");
+            continue;
+        }
+        break;
+    }
+
+    cycle
+}
+
+async fn should_terminate(terminate: Arc<AtomicBool>) -> bool {
+    while !terminate.load(Ordering::Relaxed) {}
+    true
 }

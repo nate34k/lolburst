@@ -11,19 +11,19 @@ pub struct VS {
     pub vs_per_min_vecdeque: SliceDeque<(f64, f64)>,
     pub x_axis_bounds: [f64; 2],
     pub y_axis_bounds: [f64; 2],
-    pub x_axis_labels: [String; 3],
+    pub x_axis_labels: [String; 2],
     pub y_axis_labels: [String; 5],
 }
 
 impl VS {
-    pub fn new() -> Self {
+    pub fn new(c: &Config) -> Self {
         VS {
             vs_total: 0.0,
             vs_per_min: 0.0,
             vs_per_min_vecdeque: SliceDeque::new(),
             x_axis_bounds: [0.0, 0.0],
             y_axis_bounds: [0.0, 2.0],
-            x_axis_labels: ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
+            x_axis_labels: [c.dataset_lifetime.to_string() + "s", "0s".to_string()],
             y_axis_labels: [
                 0.0.to_string(),
                 0.5.to_string(),

@@ -1,6 +1,5 @@
 use super::teams::OpponantTeam;
 use crate::{
-    active_player, all_players,
     data::{ActivePlayer, AllPlayer},
 };
 use serde_json::Value;

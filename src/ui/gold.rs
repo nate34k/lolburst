@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, time};
+use std::{cmp::Ordering};
 
 use slice_deque::SliceDeque;
 
@@ -14,12 +14,12 @@ pub struct Gold {
     pub gold_per_min_vecdeque: SliceDeque<(f64, f64)>,
     pub x_axis_bounds: [f64; 2],
     pub y_axis_bounds: [f64; 2],
-    pub x_axis_labels: [String; 3],
+    pub x_axis_labels: [String; 2],
     pub y_axis_labels: [String; 5],
 }
 
 impl Gold {
-    pub fn new() -> Self {
+    pub fn new(c: &Config) -> Self {
         Gold {
             gold_last_tick: 500.0,
             gold_total: 0.0,
@@ -27,7 +27,7 @@ impl Gold {
             gold_per_min_vecdeque: SliceDeque::new(),
             x_axis_bounds: [0.0, 0.0],
             y_axis_bounds: [0.0, 600.0],
-            x_axis_labels: ["-5:00".to_string(), "-2:30".to_string(), "0:00".to_string()],
+            x_axis_labels: [c.dataset_lifetime.to_string() + "s", "0s".to_string()],
             y_axis_labels: [
                 0.0.to_string(),
                 150.0.to_string(),
@@ -73,13 +73,11 @@ impl Gold {
     }
 
     pub fn on_tick(&mut self, game_time: f64, current_gold: f64) {
-        let time = time::Instant::now();
         self.update_gold_total(current_gold);
         self.update_gold_last_tick(current_gold);
         self.update_gold_per_min(game_time);
         self.update_datasets(game_time);
         self.update_axis();
-        info!("Gold on_tick took: {:?}", time.elapsed());
     }
 }
 

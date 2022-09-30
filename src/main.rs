@@ -12,7 +12,6 @@ use std::io;
 use tui::{backend::CrosstermBackend, Terminal};
 
 mod active_player;
-mod all_players;
 mod app;
 mod champion;
 mod config;

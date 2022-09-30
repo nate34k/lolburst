@@ -1,4 +1,4 @@
-use crate::{active_player, data::ActivePlayer, dmg, AbilityRanks};
+use crate::{data::ActivePlayer, dmg, AbilityRanks};
 
 use super::{CalculateDamageStruct, CalculateDamageTrait};
 
