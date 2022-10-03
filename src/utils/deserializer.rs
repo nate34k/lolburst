@@ -9,7 +9,7 @@ use std::fs;
 const ALL_DATA_JSON_SAMPLE: &str = "./resources/all_data/all_data_";
 const ALL_DATA_URL: &str = "https://127.0.0.1:2999/liveclientdata/allgamedata";
 
-pub async fn deserializer(
+pub async fn deserialize(
     app: &App,
     client: &Client,
     cycle: usize,

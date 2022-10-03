@@ -21,39 +21,69 @@ pub mod vs;
 // TODO: refactor this mess
 pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     // Define a block ui element with a border and a title
-    let block = Block::default().borders(Borders::ALL).title("lolburst");
+    let main_block = Block::default().borders(Borders::ALL).title("lolburst");
 
     // Define an inner Rect for the block element
-    let inner_area = block.inner(size);
+    let main_block_inner = main_block.inner(size);
 
     // Render the block element
-    f.render_widget(block, size);
+    f.render_widget(main_block, size);
 
-    let mut constraints = vec![Constraint::Percentage(100)];
-    if app.draw_logger {
-        constraints = vec![Constraint::Length(16), Constraint::Percentage(100)];
-    }
-    let mut logger_style = Style::default();
-    if app.logger_scroll_mode {
-        logger_style = Style::default().fg(Color::Red);
-    }
+    let constraints = logger_constraint(app);
+    
+    let logger_style = logger_style(app);
 
-    // Define a layout for inner_area
-    let rects = Layout::default()
+    // Define a layout for main_block_inner
+    // 
+    // Either draw the app or both the app and the logger depending on
+    // the app's logger_scroll_mode
+    //
+    // ---------------------------
+    // |                         |
+    // |           app           |
+    // |                         |
+    // |                         |
+    // |                         |
+    // ---------------------------
+    //  or
+    // --------------------------- 
+    // |           app           |
+    // |                         |
+    // |-------------------------|
+    // |         logger          |
+    // |                         |
+    // ---------------------------
+    let ui_blocks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(constraints)
-        .split(inner_area);
+        .split(main_block_inner);
 
-    // Define a layout for data area
-    let data_rects = Layout::default()
+    // Define a layout for the app area
+    // 
+    // ---------------------------
+    // |                         |
+    // |           app           |
+    // |                         | -----
+    // |                         |     |
+    // |                         |     |
+    // ---------------------------     |
+    //                                 |
+    // ---------------------------     |
+    // |       |                 |     |
+    // | Table |     Stats       |     |
+    // |   35  |      100%       | <---|
+    // |       |                 |
+    // |       |                 |
+    // ---------------------------
+    let data_blocks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Length(35), Constraint::Percentage(100)])
-        .split(rects[0]);
+        .split(ui_blocks[0]);
 
     let stats_rects = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Length(3), Constraint::Percentage(90)])
-        .split(data_rects[1]);
+        .split(data_blocks[1]);
 
     // Define a layout for stats rects
     let paragraph_stats_rects = Layout::default()
@@ -122,7 +152,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         ]);
 
     // Render the burst table
-    f.render_widget(t, data_rects[0]);
+    f.render_widget(t, data_blocks[0]);
 
     // Helper closure for creating a Block for a paragraph
     let create_block = |title, style| {
@@ -321,8 +351,22 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
             .state(&app.logger_state)
             .highlight_style(Style::default().fg(Color::Red))
             .border_style(logger_style);
-        f.render_widget(tui_sm, rects[1]);
+        f.render_widget(tui_sm, ui_blocks[1]);
     }
+}
+
+fn logger_constraint(app: &app::App) -> Vec<Constraint> {
+    if app.draw_logger {
+        return vec![Constraint::Length(16), Constraint::Percentage(100)];
+    }
+    vec![Constraint::Percentage(100)]
+}
+
+fn logger_style(app: &app::App) -> Style {
+    if app.logger_scroll_freeze {
+        return Style::default().fg(Color::Red);
+    }
+    Style::default()
 }
 
 // Function to match the stat and return the appropriate style

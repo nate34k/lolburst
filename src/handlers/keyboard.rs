@@ -21,11 +21,11 @@ pub fn handle_keyboard(ui_event: UIEvent, app: &mut App) -> KeyboardHandler {
                 }
                 KeyCode::PageUp => {
                     app.logger_state.transition(&TuiWidgetEvent::PrevPageKey);
-                    app.logger_scroll_mode = true;
+                    app.logger_scroll_freeze = true;
                 }
                 KeyCode::PageDown => {
                     app.logger_state.transition(&TuiWidgetEvent::NextPageKey);
-                    app.logger_scroll_mode = true;
+                    app.logger_scroll_freeze = true;
                 }
                 KeyCode::Up => {
                     app.logger_state.transition(&TuiWidgetEvent::UpKey);
@@ -41,7 +41,7 @@ pub fn handle_keyboard(ui_event: UIEvent, app: &mut App) -> KeyboardHandler {
                 }
                 KeyCode::Esc => {
                     app.logger_state.transition(&TuiWidgetEvent::EscapeKey);
-                    app.logger_scroll_mode = false;
+                    app.logger_scroll_freeze = false;
                 }
                 KeyCode::Char(' ') => {
                     app.logger_state.transition(&TuiWidgetEvent::SpaceKey);
