@@ -144,7 +144,11 @@ impl<B: Backend> UI<'_, B> {
 
             self.draw_gold_per_min_paragraph(app, paragraph_stats_rects[0], f);
 
-            self.draw_gold_per_min_chart(app, chart_stats_rects[0], f)
+            self.draw_gold_per_min_chart(app, chart_stats_rects[0], f);
+
+            if app.draw_logger {
+                self.draw_smart_logger(app, chunks[1], f)
+            }
         })
     }
 
@@ -261,6 +265,25 @@ impl<B: Backend> UI<'_, B> {
 
         // Render chart for "gold per minute"
         f.render_widget(c_gold, chunk);
+    }
+
+    fn draw_smart_logger(&mut self, app: &mut App, chunk: Rect, f: &mut Frame<B>) {
+        let tui_sm = TuiLoggerSmartWidget::default()
+            .style_error(Style::default().fg(Color::Red))
+            .style_debug(Style::default().fg(Color::Green))
+            .style_warn(Style::default().fg(Color::Yellow))
+            .style_trace(Style::default().fg(Color::Magenta))
+            .style_info(Style::default().fg(Color::Cyan))
+            .output_separator('|')
+            .output_timestamp(Some("%F %H:%M:%S%.3f".to_string()))
+            .output_level(Some(TuiLoggerLevelOutput::Long))
+            .output_target(true)
+            .output_file(true)
+            .output_line(true)
+            .state(&app.logger_state)
+            .highlight_style(Style::default().fg(Color::Red))
+            .border_style(logger_style(app));
+        f.render_widget(tui_sm, chunk);
     }
 }
 
