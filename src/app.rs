@@ -1,8 +1,10 @@
-use std::{
-    io, thread,
-    time::{self, Duration, Instant}, sync::{Arc, atomic::Ordering},
-};
 use std::sync::atomic::AtomicBool;
+use std::{
+    io,
+    sync::{atomic::Ordering, Arc},
+    thread,
+    time::{self, Duration, Instant},
+};
 
 use crossbeam::{
     channel::{unbounded, Receiver},
@@ -18,10 +20,14 @@ use tui_logger::TuiWidgetState;
 use crate::{
     champion::{self, Champion},
     config::Config,
+    data::LiveGame,
     handlers::keyboard::{handle_keyboard, KeyboardHandler},
     network, ui,
     ui::burst_table::BurstTable,
-    utils::{deserializer::{self, deserialize}, teams}, data::LiveGame,
+    utils::{
+        deserializer::{self, deserialize},
+        teams,
+    },
 };
 
 pub struct App {
@@ -290,8 +296,12 @@ pub trait Stats {
     fn string_from_per_min(&self) -> String;
 }
 
-async fn check_game_ready(app: &App, client: &Client, mut cycle: usize, terminate: Arc<AtomicBool>) -> usize {
-
+async fn check_game_ready(
+    app: &App,
+    client: &Client,
+    mut cycle: usize,
+    terminate: Arc<AtomicBool>,
+) -> usize {
     println!("Waiting for League of Legends to start...");
 
     let mut data: Result<LiveGame, serde_json::Error>;
@@ -305,13 +315,13 @@ async fn check_game_ready(app: &App, client: &Client, mut cycle: usize, terminat
         data = deserializer::deserialize(app, client, cycle).await;
         cycle += 1;
         //let data = deserializer::deserializer(&app, &client, cycle).await;
-        
+
         // Guard clause to check if the game is ready
         //
         // If the game is not ready, we will wait for 5 seconds and try again
         //
-        // This check is done because Riot API will send bogus data during the 
-        // loading screen, so we wait until we have data in the events vec before 
+        // This check is done because Riot API will send bogus data during the
+        // loading screen, so we wait until we have data in the events vec before
         // continuing on with the main loop
         if data.is_err() {
             thread::sleep(Duration::from_secs(1));

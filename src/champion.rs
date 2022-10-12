@@ -1,8 +1,4 @@
-use crate::{
-    active_player::{AbilityRanks},
-    data::ActivePlayer,
-    dmg,
-};
+use crate::{active_player::AbilityRanks, data::ActivePlayer, dmg};
 
 pub mod ahri;
 pub mod orianna;

@@ -1,17 +1,20 @@
-use std::{vec, io};
+use std::{io, vec};
 
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
+    terminal::CompletedFrame,
     text::Span,
-    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, BorderType},
-    Frame, Terminal, terminal::CompletedFrame,
+    widgets::{
+        Axis, Block, BorderType, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table,
+    },
+    Frame, Terminal,
 };
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget};
 
-use crate::app::{self, Stats, App};
+use crate::app::{self, App, Stats};
 
 pub mod burst_table;
 pub mod cs;
@@ -26,7 +29,9 @@ pub struct UI<'a, B> {
 impl<B: Backend> UI<'_, B> {
     pub fn new() -> Self {
         UI {
-            main_block: Block::default().borders(Borders::ALL).border_type(BorderType::Double),
+            main_block: Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Double),
             phantom: std::marker::PhantomData,
         }
     }
@@ -35,15 +40,16 @@ impl<B: Backend> UI<'_, B> {
         &mut self,
         terminal: &'terminal mut Terminal<B>,
         app: &mut App,
-    ) -> Result<CompletedFrame<'terminal>, std::io::Error> 
-    where B: Backend
+    ) -> Result<CompletedFrame<'terminal>, std::io::Error>
+    where
+        B: Backend,
     {
         terminal.draw(|f| {
             let size = f.size();
             let block_inner = self.main_block.inner(size);
             f.render_widget(self.main_block.clone(), size);
             // Define a layout for main_block_inner
-            // 
+            //
             // Either draw the app or both the app and the logger depending on
             // the app's logger_scroll_mode
             //
@@ -55,7 +61,7 @@ impl<B: Backend> UI<'_, B> {
             // |                         |
             // ---------------------------
             //  or
-            // --------------------------- 
+            // ---------------------------
             // |           app           |
             // |                         |
             // |-------------------------|
@@ -64,12 +70,11 @@ impl<B: Backend> UI<'_, B> {
             // ---------------------------
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints(logger_constraint(app).as_ref(),
-                )
+                .constraints(logger_constraint(app).as_ref())
                 .split(block_inner);
 
             // Define a layout for the app area
-            // 
+            //
             // ---------------------------
             // |                         |
             // |           app           |
@@ -89,7 +94,7 @@ impl<B: Backend> UI<'_, B> {
                 .direction(Direction::Horizontal)
                 .constraints(vec![Constraint::Length(35), Constraint::Percentage(100)])
                 .split(chunks[0]);
-            
+
             let stats_block = Block::default().borders(Borders::ALL).title("Stats");
             f.render_widget(stats_block.clone(), data_chunks[1]);
 
@@ -106,7 +111,7 @@ impl<B: Backend> UI<'_, B> {
             // ---------------------------     |
             // |       paragraph  3      |     |
             // |-------------------------|     |
-            // |          charts         | <---|    
+            // |          charts         | <---|
             // |           100%          |
             // |                         |
             // ---------------------------
@@ -136,8 +141,9 @@ impl<B: Backend> UI<'_, B> {
                 .split(stats_chunks[1]);
 
             self.draw_burst_table(app, data_chunks[0], f);
+
             self.draw_gold_per_min_paragraph(app, paragraph_stats_rects[0], f);
-            
+
             self.draw_gold_per_min_chart(app, chart_stats_rects[0], f)
         })
     }
@@ -252,7 +258,7 @@ impl<B: Backend> UI<'_, B> {
                     ),
             )
             .block(build_block("Gold Per Minute", Style::default()));
-        
+
         // Render chart for "gold per minute"
         f.render_widget(c_gold, chunk);
     }
@@ -270,11 +276,11 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     f.render_widget(main_block, size);
 
     let constraints = logger_constraint(app);
-    
+
     let logger_style = logger_style(app);
 
     // Define a layout for main_block_inner
-    // 
+    //
     // Either draw the app or both the app and the logger depending on
     // the app's logger_scroll_mode
     //
@@ -286,7 +292,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
     // |                         |
     // ---------------------------
     //  or
-    // --------------------------- 
+    // ---------------------------
     // |           app           |
     // |                         |
     // |-------------------------|
@@ -299,7 +305,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
         .split(main_block_inner);
 
     // Define a layout for the app area
-    // 
+    //
     // ---------------------------
     // |                         |
     // |           app           |

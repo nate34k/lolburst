@@ -1,11 +1,8 @@
-use std::{cmp::Ordering};
+use std::cmp::Ordering;
 
 use slice_deque::SliceDeque;
 
-use crate::{
-    app::{Stats},
-    config::Config,
-};
+use crate::{app::Stats, config::Config};
 
 pub struct Gold {
     pub gold_last_tick: f64,

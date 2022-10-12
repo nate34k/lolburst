@@ -94,7 +94,7 @@ pub fn get_pid(process_name: &str) -> (process_memory::Pid, usize) {
     // Define snapshot to be a HANDLE
     let snapshot: winapi::um::winnt::HANDLE;
 
-    // Scary unsafe code to get the base address of the processes main module as defined 
+    // Scary unsafe code to get the base address of the processes main module as defined
     // in process_name, this is the address of the .exe file
     unsafe {
         // Create a snapshot of all modules in the process
@@ -103,9 +103,9 @@ pub fn get_pid(process_name: &str) -> (process_memory::Pid, usize) {
             pid,
         );
         // Check if the snapshot was created successfully
-        if winapi::um::tlhelp32::Module32First(snapshot, &mut entry) 
+        if winapi::um::tlhelp32::Module32First(snapshot, &mut entry)
             == winapi::shared::minwindef::TRUE
-        {   
+        {
             // Check if the first module is the main module (it should be)
             if utf8_to_string(&entry.szModule) == process_name {
                 // Set the base_addr to the base address of the main module

@@ -1,7 +1,5 @@
 use super::teams::OpponantTeam;
-use crate::{
-    data::{ActivePlayer, AllPlayer},
-};
+use crate::data::{ActivePlayer, AllPlayer};
 use serde_json::Value;
 
 pub struct OpponantResistances {

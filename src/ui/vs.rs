@@ -1,9 +1,6 @@
 use slice_deque::SliceDeque;
 
-use crate::{
-    app::{Stats},
-    config::Config,
-};
+use crate::{app::Stats, config::Config};
 
 pub struct VS {
     pub vs_total: f64,

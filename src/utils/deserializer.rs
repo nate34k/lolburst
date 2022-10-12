@@ -1,8 +1,4 @@
-use crate::{
-    app::{App},
-    data::LiveGame,
-    network,
-};
+use crate::{app::App, data::LiveGame, network};
 use reqwest::Client;
 use std::fs;
 
