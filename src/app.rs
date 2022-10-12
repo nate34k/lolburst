@@ -96,6 +96,8 @@ pub async fn run_app<B: Backend>(
 
     let terminate = Arc::new(AtomicBool::new(false));
 
+    let mut ui = ui::UI::new();
+
     // Spawn threads to handle additional tasks
     let ui_events_rx = setup_ui_events(terminate.clone());
 
@@ -141,7 +143,8 @@ pub async fn run_app<B: Backend>(
     loop {
         let time = time::Instant::now();
 
-        draw(terminal, &app);
+        ui.draw(terminal, &mut app);
+        //draw(terminal, &app);
 
         app.burst_last = app
             .burst_table_items
@@ -213,6 +216,7 @@ pub async fn run_app<B: Backend>(
 
         app.check_elapsed_time(config.sample_rate);
 
+        info!("Timeout: {:?}", timeout);
         info!("cycle took: {:?}", time.elapsed());
     }
     Ok(())

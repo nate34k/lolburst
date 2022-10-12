@@ -1,22 +1,211 @@
-use std::vec;
+use std::{vec, io};
 
 use tui::{
-    backend::Backend,
+    backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
     text::Span,
-    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table},
-    Frame,
+    widgets::{Axis, Block, Borders, Cell, Chart, Dataset, GraphType, Paragraph, Row, Table, BorderType},
+    Frame, Terminal, terminal::CompletedFrame,
 };
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget};
 
-use crate::app::{self, Stats};
+use crate::app::{self, Stats, App};
 
 pub mod burst_table;
 pub mod cs;
 pub mod gold;
 pub mod vs;
+
+pub struct UI<'a, B> {
+    pub main_block: Block<'a>,
+    phantom: std::marker::PhantomData<B>,
+}
+
+impl<B: Backend> UI<'_, B> {
+    pub fn new() -> Self {
+        UI {
+            main_block: Block::default().borders(Borders::ALL).border_type(BorderType::Double),
+            phantom: std::marker::PhantomData,
+        }
+    }
+
+    pub fn draw<'terminal>(
+        &mut self,
+        terminal: &'terminal mut Terminal<B>,
+        app: &mut App,
+    ) -> Result<CompletedFrame<'terminal>, std::io::Error> 
+    where B: Backend
+    {
+        terminal.draw(|f| {
+            let size = f.size();
+            let block_inner = self.main_block.inner(size);
+            f.render_widget(self.main_block.clone(), size);
+            // Define a layout for main_block_inner
+            // 
+            // Either draw the app or both the app and the logger depending on
+            // the app's logger_scroll_mode
+            //
+            // ---------------------------
+            // |                         |
+            // |           app           |
+            // |                         |
+            // |                         |
+            // |                         |
+            // ---------------------------
+            //  or
+            // --------------------------- 
+            // |           app           |
+            // |                         |
+            // |-------------------------|
+            // |         logger          |
+            // |                         |
+            // ---------------------------
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(logger_constraint(app).as_ref(),
+                )
+                .split(block_inner);
+
+            // Define a layout for the app area
+            // 
+            // ---------------------------
+            // |                         |
+            // |           app           |
+            // |                         | -----
+            // |                         |     |
+            // |                         |     |
+            // ---------------------------     |
+            //                                 |
+            // ---------------------------     |
+            // |       |                 |     |
+            // | Table |     Stats       |     |
+            // |   35  |      100%       | <---|
+            // |       |                 |
+            // |       |                 |
+            // ---------------------------
+            let data_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(vec![Constraint::Length(35), Constraint::Percentage(100)])
+                .split(chunks[0]);
+            
+            let stats_block = Block::default().borders(Borders::ALL).title("Stats");
+            f.render_widget(stats_block.clone(), data_chunks[1]);
+
+            // Define a layout for the stats area
+            //
+            // ---------------------------
+            // |                         |
+            // |          Stats          |
+            // |                         | -----
+            // |                         |     |
+            // |                         |     |
+            // ---------------------------     |
+            //                                 |
+            // ---------------------------     |
+            // |       paragraph  3      |     |
+            // |-------------------------|     |
+            // |          charts         | <---|    
+            // |           100%          |
+            // |                         |
+            // ---------------------------
+            let stats_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Length(3), Constraint::Percentage(90)])
+                .split(stats_block.inner(data_chunks[1]));
+
+            // Split the paragraph into 3 chunks
+            let paragraph_stats_rects = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(vec![
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(34),
+                    Constraint::Percentage(33),
+                ])
+                .split(stats_chunks[0]);
+
+            // Split the charts into 3 chunks
+            let chart_stats_rects = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(vec![
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(34),
+                    Constraint::Percentage(33),
+                ])
+                .split(stats_chunks[1]);
+
+            self.draw_burst_table(app, data_chunks[0], f);
+            self.draw_gold_per_min_paragraph(app, paragraph_stats_rects[0], f);
+        })
+    }
+
+    fn draw_burst_table(&mut self, app: &mut App, chunk: Rect, f: &mut Frame<B>) {
+        // Define formatting for burst table
+        // Set the bg style
+        let burst_normal_style = Style::default();
+        // Set the header cell names and style
+        let burst_header_cells = ["Champion", "Level", "Burst"]
+            .iter()
+            .map(|h| Cell::from(*h).style(Style::default().fg(Color::LightBlue)));
+        // Set the header row
+        let burst_header = Row::new(burst_header_cells)
+            .style(burst_normal_style)
+            .height(1)
+            .bottom_margin(1);
+        // Set table rows
+        let burst_rows = app.burst_table_items.iter().enumerate().map(|item| {
+            let height = item
+                .1
+                .iter()
+                .map(|content| content.chars().filter(|c| *c == '\n').count())
+                .max()
+                .unwrap_or(0)
+                + 1;
+            let style: Style;
+            if item.1.last().unwrap().parse::<f64>().unwrap()
+                > app.burst_last[item.0].parse::<f64>().unwrap()
+            {
+                style = Style::default().fg(Color::LightGreen);
+            } else if item.1.last().unwrap().parse::<f64>().unwrap()
+                < app.burst_last[item.0].parse::<f64>().unwrap()
+            {
+                style = Style::default().fg(Color::Red);
+            } else {
+                style = Style::default();
+            }
+            let cells = item.1.iter().map(|c| Cell::from(c.as_str()).style(style));
+            Row::new(cells).height(height as u16)
+        });
+
+        // Define the burst table
+        let t = Table::new(burst_rows)
+            .header(burst_header)
+            .block(Block::default().borders(Borders::ALL).title("Burst"))
+            .widths(&[
+                Constraint::Length(12),
+                Constraint::Length(5),
+                Constraint::Length(5),
+            ]);
+
+        // Render the burst table
+        f.render_widget(t, chunk);
+    }
+
+    fn draw_gold_per_min_paragraph(&mut self, app: &mut App, chunk: Rect, f: &mut Frame<B>) {
+        // Define a layout for "gold per minute"
+        // Set style to correct color for "gold per minute"
+        let style: Style =
+            match_paragraph_style("gold", app.gold.gold_per_min_vecdeque.back().unwrap().1);
+        // Define paragraph for "gold per minute"
+        let paragraph = Paragraph::new(app.gold.string_from_per_min())
+            .style(style)
+            .block(build_paragraph_block("Gold Per Minute", style))
+            .alignment(Alignment::Center);
+        // Render paragraph for "gold per minute"
+        f.render_widget(paragraph, chunk);
+    }
+}
 
 // TODO: refactor this mess
 pub fn ui<B: Backend>(f: &mut Frame<B>, size: Rect, app: &app::App) {
@@ -367,6 +556,17 @@ fn logger_style(app: &app::App) -> Style {
         return Style::default().fg(Color::Red);
     }
     Style::default()
+}
+
+// Function to create a block for paragraphs
+fn build_paragraph_block(title: &str, style: Style) -> Block {
+    Block::default()
+        .borders(Borders::ALL)
+        .style(style)
+        .title(Span::styled(
+            title,
+            Style::default().add_modifier(Modifier::BOLD),
+        ))
 }
 
 // Function to match the stat and return the appropriate style
