@@ -137,6 +137,8 @@ impl<B: Backend> UI<'_, B> {
 
             self.draw_burst_table(app, data_chunks[0], f);
             self.draw_gold_per_min_paragraph(app, paragraph_stats_rects[0], f);
+            
+            self.draw_gold_per_min_chart(app, chart_stats_rects[0], f)
         })
     }
 
@@ -200,10 +202,59 @@ impl<B: Backend> UI<'_, B> {
         // Define paragraph for "gold per minute"
         let paragraph = Paragraph::new(app.gold.string_from_per_min())
             .style(style)
-            .block(build_paragraph_block("Gold Per Minute", style))
+            .block(build_block("Gold Per Minute", style))
             .alignment(Alignment::Center);
         // Render paragraph for "gold per minute"
         f.render_widget(paragraph, chunk);
+    }
+
+    fn draw_gold_per_min_chart(&mut self, app: &mut App, chunk: Rect, f: &mut Frame<B>) {
+        // Set style to correct color for "gold per minute"
+        let style: Style =
+            match_paragraph_style("gold", app.gold.gold_per_min_vecdeque.back().unwrap().1);
+
+        // Build dataset for "gold per minute"
+        let gold_per_min_dataset = vec![Dataset::default()
+            .name("Gold Per Minute")
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(style)
+            .data(&app.gold.gold_per_min_vecdeque)];
+
+        // Build chart for "gold per minute"
+        let c_gold = Chart::new(gold_per_min_dataset)
+            .x_axis(
+                Axis::default()
+                    .title(Span::styled("T", Style::default().fg(Color::DarkGray)))
+                    .style(Style::default())
+                    .bounds(app.gold.x_axis_bounds)
+                    .labels(
+                        app.gold
+                            .x_axis_labels
+                            .iter()
+                            .cloned()
+                            .map(Span::from)
+                            .collect(),
+                    ),
+            )
+            .y_axis(
+                Axis::default()
+                    .title(Span::styled("GPM", Style::default().fg(Color::DarkGray)))
+                    .style(Style::default())
+                    .bounds(app.gold.y_axis_bounds)
+                    .labels(
+                        app.gold
+                            .y_axis_labels
+                            .iter()
+                            .cloned()
+                            .map(Span::from)
+                            .collect(),
+                    ),
+            )
+            .block(build_block("Gold Per Minute", Style::default()));
+        
+        // Render chart for "gold per minute"
+        f.render_widget(c_gold, chunk);
     }
 }
 
@@ -559,7 +610,7 @@ fn logger_style(app: &app::App) -> Style {
 }
 
 // Function to create a block for paragraphs
-fn build_paragraph_block(title: &str, style: Style) -> Block {
+fn build_block(title: &str, style: Style) -> Block {
     Block::default()
         .borders(Borders::ALL)
         .style(style)
