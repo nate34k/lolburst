@@ -1,7 +1,7 @@
-use std::{io, vec};
+use std::vec;
 
 use tui::{
-    backend::{Backend, CrosstermBackend},
+    backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
@@ -34,6 +34,29 @@ impl<B: Backend> UI<'_, B> {
                 .border_type(BorderType::Double),
             phantom: std::marker::PhantomData,
         }
+    }
+
+    pub fn draw_loading_screen<'terminal>(
+        &mut self,
+        terminal: &'terminal mut Terminal<B>,
+        wait_msg: &str,
+    ) -> Result<CompletedFrame<'terminal>, std::io::Error>
+    where
+        B: Backend,
+    {
+        terminal.draw(|f| {
+            let size = f.size();
+            let block_inner = self.main_block.inner(size);
+            f.render_widget(self.main_block.clone(), size);
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Percentage(100)])
+                .split(block_inner);
+            let loading_paragraph = Paragraph::new(wait_msg)
+                .block(Block::default().borders(Borders::ALL))
+                .alignment(Alignment::Center);
+            f.render_widget(loading_paragraph, chunks[0]);
+        })
     }
 
     pub fn draw<'terminal>(
@@ -413,7 +436,7 @@ impl<B: Backend> UI<'_, B> {
             .state(&app.logger_state)
             .highlight_style(Style::default().fg(Color::Red))
             .border_style(logger_style(app));
-        f.render_widget(tui_sm, chunk);
+        f.render_widget(tui_sm, chunk);   
     }
 }
 

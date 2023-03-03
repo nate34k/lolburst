@@ -3,6 +3,7 @@ use tui_logger::TuiWidgetEvent;
 
 use crate::app::{App, UIEvent};
 
+#[derive(Debug, PartialEq)]
 pub enum KeyboardHandler {
     Quit,
     None,
@@ -66,3 +67,64 @@ pub fn handle_keyboard(ui_event: UIEvent, app: &mut App) -> KeyboardHandler {
     }
     KeyboardHandler::None
 }
+
+#[test]
+fn test_handle_keyboard_q_press() {
+    let mut app = App::new(&crate::config::Config::default());
+    let ui_event = UIEvent::Key(crossterm::event::KeyEvent {
+        code: KeyCode::Char('q'),
+        modifiers: crossterm::event::KeyModifiers::NONE,
+    });
+    let handler = handle_keyboard(ui_event, &mut app);
+    assert_eq!(handler, KeyboardHandler::Quit);
+}
+
+#[test]
+fn test_handle_keyboard_l_press() {
+    let mut app = App::new(&crate::config::Config::default());
+    let ui_event = UIEvent::Key(crossterm::event::KeyEvent {
+        code: KeyCode::Char('l'),
+        modifiers: crossterm::event::KeyModifiers::NONE,
+    });
+    let handler = handle_keyboard(ui_event, &mut app);
+    assert_eq!(handler, KeyboardHandler::None);
+    assert_eq!(app.draw_logger, true);
+}
+
+#[test]
+fn test_handle_keyboard_page_up_press() {
+    let mut app = App::new(&crate::config::Config::default());
+    let ui_event = UIEvent::Key(crossterm::event::KeyEvent {
+        code: KeyCode::PageUp,
+        modifiers: crossterm::event::KeyModifiers::NONE,
+    });
+    let handler = handle_keyboard(ui_event, &mut app);
+    assert_eq!(handler, KeyboardHandler::None);
+    assert_eq!(app.logger_scroll_freeze, true);
+}
+
+#[test]
+fn test_handle_keyboard_page_down_press() {
+    let mut app = App::new(&crate::config::Config::default());
+    let ui_event = UIEvent::Key(crossterm::event::KeyEvent {
+        code: KeyCode::PageDown,
+        modifiers: crossterm::event::KeyModifiers::NONE,
+    });
+    let handler = handle_keyboard(ui_event, &mut app);
+    assert_eq!(handler, KeyboardHandler::None);
+    assert_eq!(app.logger_scroll_freeze, true);
+}
+
+#[test]
+fn test_handle_keyboard_esc_press() {
+    let mut app = App::new(&crate::config::Config::default());
+    let ui_event = UIEvent::Key(crossterm::event::KeyEvent {
+        code: KeyCode::Esc,
+        modifiers: crossterm::event::KeyModifiers::NONE,
+    });
+    let handler = handle_keyboard(ui_event, &mut app);
+    assert_eq!(handler, KeyboardHandler::None);
+    assert_eq!(app.logger_scroll_freeze, false);
+}
+
+
